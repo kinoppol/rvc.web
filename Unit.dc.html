@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>เว็บไซต์ย่อยหน่วยงาน</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'IBM Plex Sans Thai',Tahoma,sans-serif;color:#13213a;background:#fff}
+a{color:#1f5aa6}a:hover{color:#174a8b}
+.serif{font-family:Anuphan,'IBM Plex Sans Thai',sans-serif}
+.card{transition:transform .26s cubic-bezier(.2,.7,.2,1),box-shadow .26s}.card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(11,42,85,.13)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.desk{}.mob{display:none!important}
+@media (max-width:1023px){.desk{display:none!important}.mob{display:inline-grid!important}}
+@media (max-width:767px){.uname{font-size:28px!important;line-height:40px!important}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-width:320px">
+
+<header style="background:#fff;border-bottom:1px solid #d5ddea">
+<div style="max-width:1240px;margin:0 auto;padding:0 24px;min-height:64px;display:flex;align-items:center;gap:20px">
+<a href="Main.dc.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;flex:none">
+<div class="serif" style="width:40px;height:40px;border-radius:50%;border:2px solid #b8860b;display:grid;place-items:center;font-size:11px;font-weight:700;color:#0b2a55">ตรา</div>
+<span class="serif" style="font-size:16px;font-weight:600;color:#0b2a55">วิทยาลัยอาชีวศึกษาร้อยเอ็ด</span></a>
+<nav class="desk" aria-label="เมนูหลัก" style="display:flex;gap:4px;margin-left:auto;font-weight:600;font-size:14px">
+<a href="Main.dc.html" style="padding:8px 10px;color:#4a5a74;text-decoration:none">หน้าแรก</a>
+<a href="#" style="padding:8px 10px;color:#4a5a74;text-decoration:none">เกี่ยวกับวิทยาลัย</a>
+<a href="#" style="padding:8px 10px;color:#13213a;text-decoration:none">หน่วยงาน</a>
+<a href="#" style="padding:8px 10px;color:#4a5a74;text-decoration:none">ข่าวสาร</a>
+<a href="#" style="padding:8px 10px;color:#4a5a74;text-decoration:none">ติดต่อเรา</a>
+</nav>
+<button class="mob" aria-label="เปิดเมนู" style="margin-left:auto;width:44px;height:44px;border:1px solid #d5ddea;border-radius:3px;background:#fff;place-items:center;color:#13213a"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</div>
+</header>
+
+<section style="background:{{u.tint}};border-bottom:1px solid #d5ddea;position:relative;overflow:hidden">
+<div aria-hidden="true" style="position:absolute;left:0;top:0;bottom:0;width:6px;background:{{u.color}}"></div>
+<div aria-hidden="true" style="position:absolute;right:-40px;bottom:-60px;display:flex;gap:14px;align-items:flex-end;opacity:.16">
+<div style="width:90px;height:180px;border-radius:120px 120px 0 0;background:{{u.color}}"></div><div style="width:90px;height:240px;border-radius:120px 120px 0 0;background:{{u.color}}"></div><div style="width:90px;height:200px;border-radius:120px 120px 0 0;background:{{u.color}}"></div></div>
+<div style="position:relative;max-width:1240px;margin:0 auto;padding:36px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+<div style="flex:none;width:76px;height:92px;border-radius:120px 120px 4px 4px;background:{{u.color}};display:grid;place-items:center;animation:rise .6s both"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{u.icon}}"/></svg></div>
+<div style="min-width:0;flex:1 1 400px;animation:rise .6s .1s both">
+<div style="font-size:13px;color:#4a5a74;display:flex;gap:6px;flex-wrap:wrap"><a href="Main.dc.html" style="color:#4a5a74;text-decoration:none">หน้าแรก</a>›<a href="#" style="color:#4a5a74;text-decoration:none">{{u.parent}}</a>›<span>{{u.name}}</span></div>
+<h1 class="serif uname" style="margin:4px 0 2px;font-size:40px;line-height:54px;font-weight:600">{{u.name}}</h1>
+<div style="font-size:13px;letter-spacing:.1em;font-weight:600;color:{{u.color}}">{{u.en}}</div>
+</div>
+</div>
+</section>
+
+<nav aria-label="เมนูหน่วยงาน" style="position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid #d5ddea">
+<div style="max-width:1240px;margin:0 auto;padding:0 24px;display:flex;gap:4px;overflow-x:auto">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="7">
+<button onClick="{{t.pick}}" aria-current="{{t.cur}}" style="flex:none;padding:15px 14px 12px;font:600 15px 'IBM Plex Sans Thai',sans-serif;color:{{t.fg}};background:none;border:0;border-bottom:3px solid {{t.bd}};cursor:pointer">{{t.label}}</button>
+</sc-for>
+</div>
+</nav>
+
+<div style="max-width:1240px;margin:0 auto;padding:48px 24px 72px;display:flex;flex-wrap:wrap;gap:48px">
+<main style="flex:999 1 560px;min-width:0">
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:center;margin-bottom:48px">
+<div style="flex:1 1 300px;aspect-ratio:16/10;border-radius:4px;background-color:{{u.tint}};background-image:repeating-linear-gradient(135deg,transparent 0 10px,rgba(19,33,58,.06) 10px 11px);display:grid;place-items:center;color:#4a5a74;font-size:13px">ภาพหน้าปกหน่วยงาน</div>
+<div style="flex:1 1 300px">
+<h2 style="margin:0 0 10px;font-size:24px;line-height:36px">เกี่ยวกับหน่วยงาน</h2>
+<p style="margin:0;font-size:16px;line-height:28px;color:#4a5a74">[คำแนะนำหน่วยงาน 3–4 บรรทัด ผู้ดูแลแต่ละหน่วยงานแก้ไขได้เองจากระบบจัดการ]</p>
+<sc-if value="{{u.isDept}}" hint-placeholder-val="{{true}}">
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><span style="padding:4px 12px;border-radius:999px;background:{{u.tint}};color:{{u.color}};font-weight:600;font-size:14px">ปวช.</span><span style="padding:4px 12px;border-radius:999px;background:{{u.tint}};color:{{u.color}};font-weight:600;font-size:14px">ปวส.</span><span style="padding:4px 12px;border-radius:999px;background:{{u.tint}};color:{{u.color}};font-weight:600;font-size:14px">ทวิภาคี</span></div>
+</sc-if>
+</div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px"><h2 style="margin:0;font-size:24px;line-height:36px">ข่าวและกิจกรรมของหน่วยงาน</h2><a href="#" style="font-weight:600;text-decoration:none;font-size:15px">ทั้งหมด ›</a></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:48px">
+<sc-for list="{{u.news}}" as="n" hint-placeholder-count="3">
+<a href="#" class="card" style="display:block;border:1px solid #d5ddea;border-radius:4px;overflow:hidden;text-decoration:none;color:#13213a">
+<div style="aspect-ratio:16/10;background-color:#e9eef6;background-image:repeating-linear-gradient(135deg,transparent 0 10px,rgba(19,33,58,.06) 10px 11px)"></div>
+<div style="padding:14px 18px 18px"><div style="font-size:13px;color:#4a5a74">{{n.date}}</div><div style="font-weight:600;font-size:16px;line-height:26px;margin-top:4px">{{n.title}}</div></div></a>
+</sc-for>
+</div>
+
+<h2 style="margin:0 0 20px;font-size:24px;line-height:36px">บุคลากร</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px">
+<sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+<div style="text-align:center"><div style="width:104px;height:104px;margin:0 auto 10px;border-radius:50%;background:{{u.tint}};border:3px solid #fff;box-shadow:0 0 0 1px #d5ddea"></div>
+<div style="font-weight:600">[ชื่อ–สกุล]</div><div style="font-size:14px;color:#4a5a74">{{p}}</div></div>
+</sc-for>
+</div>
+</main>
+
+<aside style="flex:1 1 280px;min-width:0;display:grid;gap:20px;align-content:start">
+<div style="border:1px solid #d5ddea;border-radius:4px;padding:22px">
+<h3 style="margin:0 0 12px;font-size:17px">ติดต่อหน่วยงาน</h3>
+<div style="font-size:15px;line-height:1.9;color:#4a5a74">อาคาร [ชื่ออาคาร] ชั้น [0]<br>โทร [000-000-000] ต่อ [00]<br>[อีเมลหน่วยงาน]</div>
+<a href="#" style="display:flex;justify-content:center;align-items:center;min-height:44px;margin-top:14px;border-radius:3px;background:{{u.color}};color:#fff;font-weight:600;text-decoration:none">ส่งข้อความถึงหน่วยงาน</a>
+</div>
+<div style="border:1px solid #d5ddea;border-radius:4px;padding:22px">
+<h3 style="margin:0 0 6px;font-size:17px">เอกสารดาวน์โหลด</h3>
+<sc-for list="{{docs}}" as="d" hint-placeholder-count="3">
+<a href="#" style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #e3e9f2;color:#13213a;text-decoration:none;font-size:15px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{u.color}}" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5"/></svg>{{d}}</a>
+</sc-for>
+</div>
+<div style="border-radius:4px;padding:22px;background:#f7eed6">
+<div style="font-weight:600;margin-bottom:4px">เทมเพลตเดียว ใช้ได้ทุกหน่วยงาน</div>
+<div style="font-size:14px;line-height:1.7;color:#4a5a74">เปลี่ยนหน่วยงานได้จากปุ่ม Tweaks ของอาร์ตบอร์ดนี้ สีประจำกลุ่ม ไอคอน และเมนูจะปรับตามอัตโนมัติ</div>
+</div>
+</aside>
+</div>
+
+<footer style="background:#0b2a55;color:#c3d0e4;font-size:14px">
+<div style="max-width:1240px;margin:0 auto;padding:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><span class="serif" style="color:#fff;font-weight:600">วิทยาลัยอาชีวศึกษาร้อยเอ็ด</span><span>{{u.name}} · ใช้ Footer เดียวกับเว็บไซต์หลัก</span></div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"unit":{"editor":"enum","options":["แผนกวิชาการโรงแรม","แผนกวิชาการบัญชี","แผนกวิชาอาหารและโภชนาการ","แผนกวิชาเทคโนโลยีสารสนเทศ","ฝ่ายวิชาการ","งานยุทธศาสตร์แผนงานและงบประมาณ"],"default":"แผนกวิชาการโรงแรม"},"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { tab: 0 }; }
+  renderVals() {
+    const I = { biz:'M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6', home:'M6 14h12l-1 7H7zM8 14a4 4 0 1 1 8 0M12 3v3', tour:'M3 21h18M4 21V10h16v11M8 10V6h8v4M9 14h2M13 14h2M9 17h2M13 17h2', it:'M3 5h18v11H3zM8 20h8M12 16v4', org:'M12 3v5M5 13V9h14v4M3 13h4v5H3zM10 13h4v5h-4zM17 13h4v5h-4z' };
+    const news = (a) => [{ date:'25 พ.ย. 2569', title:'[ตัวอย่าง] ' + a[0] }, { date:'18 พ.ย. 2569', title:'[ตัวอย่าง] ' + a[1] }, { date:'9 พ.ย. 2569', title:'[ตัวอย่าง] ' + a[2] }];
+    const U = {
+      'แผนกวิชาการโรงแรม': { parent:'แผนกวิชา', en:'DEPARTMENT OF HOTEL', color:'#9a5b00', tint:'#fbf0dc', icon:I.tour, isDept:true, news:news(['ฝึกงานโรงแรมระดับสี่ดาว','อบรมงานบริการส่วนหน้า','ศึกษาดูงานธุรกิจที่พัก']) },
+      'แผนกวิชาการบัญชี': { parent:'แผนกวิชา', en:'DEPARTMENT OF ACCOUNTING', color:'#0e7a5a', tint:'#e3f3ed', icon:I.biz, isDept:true, news:news(['แข่งขันทักษะการบัญชี','อบรมโปรแกรมบัญชี','บริการทำบัญชีครัวเรือน']) },
+      'แผนกวิชาอาหารและโภชนาการ': { parent:'แผนกวิชา', en:'DEPARTMENT OF FOOD AND NUTRITION', color:'#b0442a', tint:'#f9e8e2', icon:I.home, isDept:true, news:news(['ผลงานดีเด่นระดับภาค','สาธิตอาหารพื้นถิ่นอีสาน','ตลาดนัดผลงานนักเรียน']) },
+      'แผนกวิชาเทคโนโลยีสารสนเทศ': { parent:'แผนกวิชา', en:'DEPARTMENT OF INFORMATION TECHNOLOGY', color:'#5b3bb0', tint:'#ece7f8', icon:I.it, isDept:true, news:news(['อบรมทักษะดิจิทัลชุมชน','แข่งขันพัฒนาเว็บไซต์','ฝึกอาชีพระยะสั้น']) },
+      'ฝ่ายวิชาการ': { parent:'ฝ่าย', en:'ACADEMIC AFFAIRS DIVISION', color:'#1f5aa6', tint:'#e8f0fb', icon:I.org, isDept:false, news:news(['ปฏิทินการศึกษาภาคเรียนที่ 2','กำหนดการสอบปลายภาค','ประชุมครูประจำภาคเรียน']) },
+      'งานยุทธศาสตร์แผนงานและงบประมาณ': { parent:'ฝ่ายยุทธศาสตร์และแผนงาน', en:'STRATEGY, PLANNING AND BUDGET', color:'#1f5aa6', tint:'#e8f0fb', icon:I.org, isDept:false, news:news(['แผนปฏิบัติราชการประจำปี','สรุปผลการดำเนินโครงการ','ประชุมจัดทำแผนพัฒนา']) }
+    };
+    const name = this.props.unit ?? 'แผนกวิชาการโรงแรม';
+    const u = { name, ...(U[name] || U['แผนกวิชาการโรงแรม']) };
+    const labels = u.isDept ? ['หน้าแรกแผนก','เกี่ยวกับแผนก','หลักสูตร','บุคลากร','ข่าวและกิจกรรม','ผลงาน','ดาวน์โหลด'] : ['หน้าแรกหน่วยงาน','บทบาทหน้าที่','งานในสังกัด','บุคลากร','ข่าวและประกาศ','ดาวน์โหลด'];
+    const tab = Math.min(this.state.tab, labels.length - 1);
+    return {
+      u,
+      tabs: labels.map((label, i) => ({ label, cur: i === tab ? 'page' : 'false', fg: i === tab ? '#13213a' : '#4a5a74', bd: i === tab ? u.color : 'transparent', pick: () => this.setState({ tab: i }) })),
+      people: u.isDept ? ['หัวหน้าแผนกวิชา','ครูประจำแผนก','ครูประจำแผนก','ครูประจำแผนก'] : ['รองผู้อำนวยการ','หัวหน้างาน','เจ้าหน้าที่','เจ้าหน้าที่'],
+      docs: u.isDept ? ['โครงสร้างหลักสูตร ปวช.','โครงสร้างหลักสูตร ปวส.','แบบฟอร์มฝึกประสบการณ์'] : ['แบบฟอร์มของหน่วยงาน','คู่มือการปฏิบัติงาน','รายงานประจำปี']
+    };
+  }
+}
+</script>
+</body>
+</html>

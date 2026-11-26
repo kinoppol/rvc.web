@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ระบบจัดการ ตั้งป๊อปอัพ</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Thai:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:'IBM Plex Sans Thai',Tahoma,sans-serif;color:#13213a;background:#f4f7fb}
+a{color:#1f5aa6}a:hover{color:#174a8b}
+.serif{font-family:Anuphan,'IBM Plex Sans Thai',sans-serif}
+.side a:hover{background:rgba(255,255,255,.08);color:#fff}
+input,select{font:inherit}
+input:focus,select:focus,textarea:focus{outline:3px solid #1f5aa6;outline-offset:1px}
+</style>
+</helmet>
+<div style="min-height:1450px;display:flex;flex-wrap:wrap;font-size:15px">
+
+<aside class="side" style="flex:1 1 240px;max-width:100%;background:#0b2a55;color:#c3d0e4;padding:16px 12px;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 20px">
+<div class="serif" style="width:36px;height:36px;border-radius:50%;border:2px solid #f2c14e;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff">ตรา</div>
+<div class="serif" style="color:#fff;font-weight:600;line-height:1.3">ระบบจัดการเว็บไซต์<br><span style="font-size:12px;font-weight:500;color:#c3d0e4">วอศ.ร้อยเอ็ด</span></div></div>
+<sc-for list="{{menu}}" as="m" hint-placeholder-count="10">
+<sc-if value="{{m.group}}" hint-placeholder-val="{{false}}"><div style="font-size:11px;letter-spacing:.12em;padding:14px 10px 6px;color:#a9b9d2">{{m.group}}</div></sc-if>
+<a href="{{m.href}}" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:3px;text-decoration:none;color:{{m.fg}};background:{{m.bg}};font-weight:600">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.icon}}"/></svg>{{m.label}}</a>
+</sc-for>
+</aside>
+
+<main style="flex:999 1 640px;min-width:0;padding:24px 32px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+<div><div style="font-size:13px;color:#4a5a74">ป๊อปอัพ › สร้างใหม่</div>
+<h1 style="margin:2px 0 0;font-size:26px;line-height:38px">ตั้งป๊อปอัพประกาศ / เทศกาล</h1>
+<p style="margin:2px 0 0;color:#4a5a74;font-size:14px">กรอก 3 ขั้น แล้วกด “บันทึกและตั้งเวลา” ระบบจะแสดงและซ่อนให้เองตามเวลาที่กำหนด</p></div>
+<div style="display:flex;gap:8px"><button style="min-height:44px;padding:0 18px;border-radius:3px;border:1px solid #8796ad;background:#fff;color:#13213a;font-weight:600;cursor:pointer">บันทึกฉบับร่าง</button>
+<button onClick="{{save}}" style="min-height:44px;padding:0 20px;border-radius:3px;border:0;background:#1f5aa6;color:#fff;font-weight:600;cursor:pointer">บันทึกและตั้งเวลา</button></div>
+</div>
+
+<sc-if value="{{saved}}" hint-placeholder-val="{{false}}">
+<div role="status" style="display:flex;gap:10px;align-items:center;padding:12px 16px;border-radius:3px;background:#e2f3e8;color:#1d7a3e;font-weight:600;margin-bottom:16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>บันทึกแล้ว ป๊อปอัพจะเริ่มแสดงตามเวลาที่ตั้งไว้</div>
+</sc-if>
+
+<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+<div style="flex:999 1 440px;min-width:0;display:grid;gap:20px">
+
+<section style="background:#fff;border:1px solid #d5ddea;border-radius:4px;padding:22px">
+<h2 style="margin:0 0 16px;font-size:18px;display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:50%;background:#1f5aa6;color:#fff;display:inline-grid;place-items:center;font-size:14px">1</span>เนื้อหาป๊อปอัพ</h2>
+<label for="pt" style="display:block;font-weight:600;margin-bottom:6px">หัวข้อ</label>
+<input id="pt" value="{{title}}" onChange="{{setTitle}}" style="width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px">
+<div style="font-weight:600;margin:16px 0 6px">ภาพป๊อปอัพ</div>
+<div style="border:2px dashed #8796ad;border-radius:4px;padding:24px;text-align:center;color:#4a5a74;background:#f4f7fb">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1f5aa6" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
+<div style="margin-top:6px"><button style="min-height:40px;padding:0 14px;border-radius:3px;border:1px solid #8796ad;background:#fff;font-weight:600;cursor:pointer">เลือกรูปภาพ</button> หรือลากไฟล์มาวางที่นี่</div>
+<div style="font-size:13px;margin-top:6px">JPG หรือ PNG แนะนำ 1200 × 900 px · ระบบย่อขนาดไฟล์ให้อัตโนมัติ</div></div>
+<label for="pl" style="display:block;font-weight:600;margin:16px 0 6px">ลิงก์เมื่อกดปุ่ม “อ่านรายละเอียด” <span style="font-weight:400;color:#4a5a74">(ไม่บังคับ)</span></label>
+<input id="pl" placeholder="เลือกข่าวในเว็บไซต์ หรือวางลิงก์" style="width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px">
+</section>
+
+<section style="background:#fff;border:1px solid #d5ddea;border-radius:4px;padding:22px">
+<h2 style="margin:0 0 16px;font-size:18px;display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:50%;background:#1f5aa6;color:#fff;display:inline-grid;place-items:center;font-size:14px">2</span>ช่วงเวลาที่แสดง</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+<div><label for="sd" style="display:block;font-weight:600;margin-bottom:6px">เริ่มแสดง</label>
+<input id="sd" type="datetime-local" value="{{start}}" onChange="{{setStart}}" style="width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px"></div>
+<div><label for="ed" style="display:block;font-weight:600;margin-bottom:6px">หยุดแสดง</label>
+<input id="ed" type="datetime-local" value="{{end}}" onChange="{{setEnd}}" style="width:100%;box-sizing:border-box;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px"></div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><span style="font-size:14px;color:#4a5a74;align-self:center">ตั้งเร็ว:</span>
+<button onClick="{{quick1}}" style="min-height:36px;padding:0 12px;border-radius:999px;border:1px solid #d5ddea;background:#fff;font-size:14px;cursor:pointer">วันนี้ทั้งวัน</button>
+<button onClick="{{quick7}}" style="min-height:36px;padding:0 12px;border-radius:999px;border:1px solid #d5ddea;background:#fff;font-size:14px;cursor:pointer">7 วัน</button>
+<button onClick="{{quick30}}" style="min-height:36px;padding:0 12px;border-radius:999px;border:1px solid #d5ddea;background:#fff;font-size:14px;cursor:pointer">30 วัน</button></div>
+<div style="margin-top:16px;padding:14px 16px;border-radius:3px;background:#e8f0fb;display:flex;gap:10px;font-size:14px;line-height:1.7">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1f5aa6" stroke-width="1.8" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+<div><b>ความถี่: แสดงวันละ 1 ครั้งต่อผู้เข้าชม</b><br>ผู้เข้าชมแต่ละคนจะเห็นป๊อปอัพนี้ครั้งแรกที่เข้าเว็บในแต่ละวัน เมื่อปิดแล้วจะไม่แสดงซ้ำจนถึงวันถัดไป</div></div>
+</section>
+
+<section style="background:#fff;border:1px solid #d5ddea;border-radius:4px;padding:22px">
+<h2 style="margin:0 0 16px;font-size:18px;display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:50%;background:#1f5aa6;color:#fff;display:inline-grid;place-items:center;font-size:14px">3</span>ตำแหน่งและการเปิดใช้</h2>
+<label for="wh" style="display:block;font-weight:600;margin-bottom:6px">แสดงที่</label>
+<select id="wh" style="width:100%;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px;background:#fff"><option>หน้าแรกเท่านั้น</option><option>ทุกหน้าของเว็บไซต์หลัก</option><option>หน้าแรก + เว็บไซต์ย่อยทุกหน่วยงาน</option></select>
+<label style="display:flex;align-items:center;gap:12px;margin-top:18px;cursor:pointer;font-weight:600">
+<input type="checkbox" checked="{{enabled}}" onChange="{{toggle}}" style="width:20px;height:20px;accent-color:#1d7a3e">เปิดใช้งานป๊อปอัพนี้</label>
+</section>
+</div>
+
+<aside style="flex:1 1 340px;min-width:0;position:sticky;top:16px;display:grid;gap:16px">
+<div style="background:#fff;border:1px solid #d5ddea;border-radius:4px;overflow:hidden">
+<div style="padding:12px 16px;border-bottom:1px solid #d5ddea;display:flex;justify-content:space-between;align-items:center"><b>ตัวอย่างที่ผู้เข้าชมจะเห็น</b><span style="padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;background:{{st.bg}};color:{{st.fg}}">{{st.label}}</span></div>
+<div style="padding:16px;background:rgba(7,18,38,.62)">
+<div style="background:#fff;border-radius:4px;overflow:hidden">
+<div style="aspect-ratio:4/3;background:#0b2a55;display:grid;place-items:center;color:#fff;text-align:center;padding:16px"><div><div style="width:44px;height:2px;margin:0 auto 12px;background:#f2c14e"></div><div class="serif" style="font-size:18px;font-weight:600">ภาพที่อัปโหลด</div></div></div>
+<div style="padding:12px 14px;font-weight:600" class="serif">{{title}}</div>
+<div style="padding:8px 14px;border-top:1px solid #d5ddea;background:#f4f7fb;display:flex;justify-content:flex-end;gap:6px"><span style="padding:6px 10px;border:1px solid #8796ad;border-radius:6px;font-size:13px;background:#fff">ปิด</span><span style="padding:6px 10px;border-radius:6px;font-size:13px;background:#1f5aa6;color:#fff">อ่านรายละเอียด</span></div>
+</div></div>
+<div style="padding:14px 16px;font-size:14px;line-height:1.7;color:#4a5a74">{{summary}}</div>
+</div>
+</aside>
+</div>
+
+<section style="margin-top:28px;background:#fff;border:1px solid #d5ddea;border-radius:4px;overflow:hidden">
+<div style="padding:14px 20px;border-bottom:1px solid #d5ddea;font-weight:700">ป๊อปอัพทั้งหมด</div>
+<div style="overflow-x:auto">
+<table style="width:100%;border-collapse:collapse;min-width:640px">
+<thead><tr style="background:#f4f7fb;color:#4a5a74;font-size:13px;text-align:left"><th style="padding:10px 20px">หัวข้อ</th><th style="padding:10px 20px">ช่วงเวลา</th><th style="padding:10px 20px">สถานะ</th><th style="padding:10px 20px"></th></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+<tr style="border-top:1px solid #d5ddea"><td style="padding:12px 20px;font-weight:600">{{r.t}}</td><td style="padding:12px 20px;color:#4a5a74">{{r.p}}</td>
+<td style="padding:12px 20px"><span style="padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;background:{{r.bg}};color:{{r.fg}}">{{r.s}}</span></td>
+<td style="padding:12px 20px;text-align:right"><a href="#" style="font-weight:600;text-decoration:none">แก้ไข</a></td></tr>
+</sc-for>
+</tbody></table></div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1450}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { title:'วันพ่อแห่งชาติ 5 ธันวาคม 2569', start:'2026-12-01T08:00', end:'2026-12-07T23:59', enabled:true, saved:false }; }
+  fmt(v) {
+    if (!v) return '—';
+    const d = new Date(v); if (isNaN(d)) return '—';
+    const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][d.getMonth()];
+    const hh = String(d.getHours()).padStart(2,'0'), mm = String(d.getMinutes()).padStart(2,'0');
+    return d.getDate() + ' ' + m + ' ' + (d.getFullYear() + 543) + ' เวลา ' + hh + '.' + mm + ' น.';
+  }
+  range(days) {
+    const s = new Date(); s.setHours(0,0,0,0); const e = new Date(s); e.setDate(e.getDate() + days - 1); e.setHours(23,59,0,0);
+    const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    this.setState({ start: iso(s), end: iso(e), saved:false });
+  }
+  renderVals() {
+    const s = this.state, now = new Date(), a = new Date(s.start), b = new Date(s.end);
+    let st = { label:'ตั้งเวลาไว้', bg:'#fcefd9', fg:'#9a5800' };
+    if (!s.enabled) st = { label:'ปิดใช้งาน', bg:'#e9eef6', fg:'#4a5a74' };
+    else if (b < a) st = { label:'เวลาไม่ถูกต้อง', bg:'#fbe5e3', fg:'#b42318' };
+    else if (now > b) st = { label:'หมดเวลาแสดง', bg:'#fbe5e3', fg:'#b42318' };
+    else if (now >= a) st = { label:'กำลังแสดง', bg:'#e2f3e8', fg:'#1d7a3e' };
+    const summary = b < a ? 'เวลาหยุดแสดงต้องอยู่หลังเวลาเริ่มแสดง กรุณาตรวจสอบอีกครั้ง' : 'จะแสดงตั้งแต่ ' + this.fmt(s.start) + ' ถึง ' + this.fmt(s.end) + ' ผู้เข้าชมแต่ละคนเห็นวันละ 1 ครั้ง';
+    const icons = { dash:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z', news:'M4 5h13v14H4zM17 8h3v11H17M7 9h7M7 13h7', page:'M6 3h9l4 4v14H6zM14 3v5h5', hero:'M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6', pop:'M4 4h16v12H8l-4 4z', unit:'M12 3v5M5 13V9h14v4M3 13h4v5H3zM10 13h4v5h-4zM17 13h4v5h-4z', menu:'M4 7h16M4 12h16M4 17h10', file:'M3 6h7l2 2h9v11H3z', user:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', set:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12h2M3 12h2M12 3v2M12 19v2' };
+    const item = (label, icon, on, group, href) => ({ label, icon, group: group || false, href: href || '#', fg: on ? '#0b2a55' : '#c3d0e4', bg: on ? '#ffffff' : 'transparent' });
+    return {
+      ...s, st, summary,
+      menu: [ item('ภาพรวม', icons.dash, false), item('ข่าวและประกาศ', icons.news, false, 'เนื้อหา', 'AdminContent.dc.html'), item('หน้าเว็บ', icons.page, false), item('ฉากเปิดหน้าแรก', icons.hero, false), item('ป๊อปอัพ', icons.pop, true), item('เว็บไซต์ย่อยหน่วยงาน', icons.unit, false, 'โครงสร้าง'), item('เมนูเว็บไซต์', icons.menu, false), item('คลังไฟล์และรูปภาพ', icons.file, false), item('ผู้ใช้และสิทธิ์', icons.user, false, 'ผู้ดูแลระบบ'), item('ตั้งค่าเว็บไซต์', icons.set, false) ],
+      setTitle: (e) => this.setState({ title: e.target.value, saved:false }),
+      setStart: (e) => this.setState({ start: e.target.value, saved:false }),
+      setEnd: (e) => this.setState({ end: e.target.value, saved:false }),
+      toggle: () => this.setState({ enabled: !s.enabled, saved:false }),
+      quick1: () => this.range(1), quick7: () => this.range(7), quick30: () => this.range(30),
+      save: () => this.setState({ saved:true }),
+      rows: [
+        { t:'ประกาศรับสมัครนักเรียน ปีการศึกษา 2570', p:'20 พ.ย. – 15 ธ.ค. 2569', s:'กำลังแสดง', bg:'#e2f3e8', fg:'#1d7a3e' },
+        { t:'วันพ่อแห่งชาติ 5 ธันวาคม', p:'1 – 7 ธ.ค. 2569', s:'ตั้งเวลาไว้', bg:'#fcefd9', fg:'#9a5800' },
+        { t:'สวัสดีปีใหม่ 2570', p:'28 ธ.ค. 2569 – 5 ม.ค. 2570', s:'ฉบับร่าง', bg:'#e9eef6', fg:'#4a5a74' },
+        { t:'วันลอยกระทง', p:'3 – 6 พ.ย. 2569', s:'หมดเวลาแสดง', bg:'#fbe5e3', fg:'#b42318' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
