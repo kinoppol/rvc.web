@@ -1,0 +1,7 @@
+# ไฟล์ที่สร้างขึ้นขณะรัน/ใช้งาน (มีรหัสผ่านหรือข้อมูล)
+/config/config.php
+/data/uploads/*
+/data/uploads/.gitkeep
+/runtime/*
+/runtime/.gitkeep
+!/.gitignore
