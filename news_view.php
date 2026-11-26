@@ -1,45 +1,51 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/core/bootstrap.php';
-require_installed();
+/* อ่านข่าว — ผู้ที่เข้าสู่ระบบดูตัวอย่างข่าวที่ยังไม่เผยแพร่ได้ (?preview=1) */
 
-$siteName = Settings::get('site_name', 'เว็บไซต์');
-$navActive = 'news';
-$popupScope = 'main';
+require __DIR__ . '/app/bootstrap.php';
 
-$id = (int) ($_GET['id'] ?? 0);
-$st = Database::pdo()->prepare(
-    'SELECT n.*, u.name AS unit_name FROM news n LEFT JOIN units u ON u.id = n.unit_id WHERE n.id = ?'
-);
-$st->execute([$id]);
-$n = $st->fetch();
-if (!$n || $n['published_at'] > date('Y-m-d H:i:s')) {
-    http_response_code(404);
-    $n = null;
-    $pageTitle = 'ไม่พบข่าว';
-} else {
-    $pageTitle = $n['title'];
+$id = input_int('id');
+$n  = Database::one('SELECT n.*, u.name AS unit_name, u.kind AS unit_kind, u.slug AS unit_slug, u.group_key
+                     FROM news n LEFT JOIN units u ON u.id = n.unit_id WHERE n.id = ?', [$id]);
+$isPublic = $n && $n['status'] === 'published' && $n['published_at'] && strtotime($n['published_at']) <= time();
+if (!$n || (!$isPublic && !Auth::user())) {
+    abort(404, 'ไม่พบข่าวนี้ หรือข่าวยังไม่เผยแพร่');
 }
+if ($isPublic && empty($_SESSION['_viewed'][$id])) {
+    Database::run('UPDATE news SET views = views + 1 WHERE id = ?', [$id]);
+    $_SESSION['_viewed'][$id] = 1;
+}
+[$tag, $color] = news_tag($n);
+$related = Database::all('SELECT n.* FROM news n WHERE ' . NEWS_PUBLIC . ' AND n.id <> ? AND n.category = ? ORDER BY n.published_at DESC LIMIT 5', [$id, $n['category']]);
 
-include __DIR__ . '/views/site_header.php';
+$pageTitle  = $n['title'];
+$metaDesc   = $n['excerpt'];
+$ogImage    = $n['cover'] ? upload_url($n['cover']) : null;
+$nav        = 'news';
+$popupWhere = 'site';
+require BASE_PATH . '/app/views/header.php';
 ?>
-<div class="wrap">
-  <?php if ($n): ?>
-  <a class="back" href="<?= e(url('news.php')) ?>">‹ กลับสู่หน้าข่าวสาร</a>
-  <article class="article">
-    <h1><?= e($n['title']) ?></h1>
-    <div class="meta">
-      <span class="chip"><?= e($n['category']) ?></span>
-      <?= $n['unit_name'] !== '' ? ' · ' . e($n['unit_name']) : '' ?> · <?= e(fmt_dt($n['published_at'])) ?>
-    </div>
-    <?php if ($n['image_path'] !== ''): ?>
-      <img class="full" src="<?= e(url('data/uploads/' . $n['image_path'])) ?>" alt="<?= e($n['title']) ?>">
+<div class="page-h"><div class="wrap">
+  <div class="crumb"><a href="<?= e(url()) ?>">หน้าแรก</a>›<a href="<?= e(url('news.php')) ?>">ข่าวสาร</a>›<a href="<?= e(url('news.php', ['cat' => $n['category']])) ?>"><?= e(NEWS_CATEGORIES[$n['category']] ?? '') ?></a></div>
+  <h1 class="hd" style="max-width:900px"><?= e($n['title']) ?></h1>
+  <div class="meta" style="color:<?= e($color) ?>;margin-top:10px"><?= e($tag) ?> <span>· <?= e(thai_date($n['published_at'] ?? $n['created_at'], 'long')) ?> · อ่าน <?= number_format((int) $n['views']) ?> ครั้ง</span></div>
+</div></div>
+<div class="wrap layout">
+  <article class="main-col article">
+    <?php if (!$isPublic): ?><div class="draft-banner">ตัวอย่าง — ข่าวนี้ยังไม่เผยแพร่ (<?= e(news_state($n)[0]) ?>) ผู้เข้าชมทั่วไปยังมองไม่เห็น</div><?php endif; ?>
+    <?php if ($n['cover']): ?><div class="figure" style="background-image:url(<?= e(upload_url($n['cover'])) ?>)" role="img" aria-label="ภาพประกอบข่าว"></div><?php endif; ?>
+    <div class="prose"><?= text_to_html((string) $n['body']) ?></div>
+    <?php if ($n['unit_slug']): ?>
+      <p style="margin-top:32px"><a href="<?= e(unit_url(['slug' => $n['unit_slug']])) ?>">← ไปที่หน้า<?= e(unit_title(['name' => $n['unit_name'], 'kind' => $n['unit_kind']])) ?></a></p>
     <?php endif; ?>
-    <div class="body"><?= text_to_html((string) $n['body']) ?></div>
   </article>
-  <?php else: ?>
-    <div class="empty">ไม่พบข่าวที่ต้องการดู — <a href="<?= e(url('news.php')) ?>">กลับสู่หน้าข่าวสาร</a></div>
-  <?php endif; ?>
+  <aside>
+    <div class="box"><h3>ข่าว<?= e(NEWS_CATEGORIES[$n['category']] ?? '') ?>ล่าสุด</h3>
+      <?php foreach ($related as $r): ?><a class="row" href="<?= e(news_url($r)) ?>"><span class="small" style="color:var(--mute)"><?= e(thai_date($r['published_at'], 'short')) ?></span><br><?= e($r['title']) ?></a><?php endforeach; ?>
+      <?php if (!$related): ?><p class="small" style="color:var(--mute);margin:0">ไม่มีข่าวอื่นในหมวดนี้</p><?php endif; ?>
+      <a style="display:inline-block;margin-top:12px;font-weight:600;text-decoration:none" href="<?= e(url('news.php', ['cat' => $n['category']])) ?>">ดูทั้งหมด →</a>
+    </div>
+  </aside>
 </div>
-<?php include __DIR__ . '/views/site_footer.php'; ?>
+<?php require BASE_PATH . '/app/views/footer.php';

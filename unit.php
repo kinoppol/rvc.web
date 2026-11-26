@@ -1,72 +1,108 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/core/bootstrap.php';
-require_installed();
+/* เว็บไซต์ย่อยหน่วยงาน — เทมเพลตเดียวใช้ได้ทุกหน่วยงาน (ตามดีไซน์ Unit.dc.html) */
 
-$siteName = Settings::get('site_name', 'เว็บไซต์');
-$navActive = 'units';
-$popupScope = 'unit';
+require __DIR__ . '/app/bootstrap.php';
 
-$id = (int) ($_GET['id'] ?? 0);
-$st = Database::pdo()->prepare('SELECT * FROM units WHERE id = ?');
-$st->execute([$id]);
-$u = $st->fetch();
+$u = Database::one('SELECT u.*, p.name AS parent_name, p.slug AS parent_slug FROM units u LEFT JOIN units p ON p.id = u.parent_id
+                    WHERE u.slug = ? AND u.is_active = 1', [input('u')]);
 if (!$u) {
-    http_response_code(404);
-    $u = null;
-    $pageTitle = 'ไม่พบหน่วยงาน';
-} else {
-    $pageTitle = $u['name'];
+    abort(404, 'ไม่พบหน่วยงานนี้');
 }
+$g      = unit_group($u['group_key']);
+$isDept = $u['kind'] === 'department';
+$title  = unit_title($u);
+$news   = latest_news(6, null, (int) $u['id']);
+$works  = $u['kind'] === 'division' ? Database::all("SELECT * FROM units WHERE parent_id = ? AND is_active = 1 ORDER BY sort, name", [$u['id']]) : [];
+$people = Database::all("SELECT display_name, role FROM users WHERE unit_id = ? AND is_active = 1 ORDER BY role, display_name", [$u['id']]);
+$parentLabel = $isDept ? 'แผนกวิชา' : ($u['parent_name'] ?? UNIT_KINDS[$u['kind']] ?? 'หน่วยงาน');
+$parentHref  = $u['parent_slug'] ? unit_url(['slug' => $u['parent_slug']]) : url('units.php');
 
-$unitNews = [];
-if ($u) {
-    $st = Database::pdo()->prepare(
-        'SELECT * FROM news WHERE unit_id = ? AND published_at <= NOW() ORDER BY published_at DESC LIMIT 6'
-    );
-    $st->execute([$id]);
-    $unitNews = $st->fetchAll();
-}
+$sections = $isDept
+    ? ['about' => 'หน้าแรกแผนก', 'news' => 'ข่าวและกิจกรรม', 'contact' => 'ติดต่อ']
+    : ['about' => 'หน้าแรกหน่วยงาน'] + ($works ? ['works' => 'งานในสังกัด'] : []) + ['news' => 'ข่าวและประกาศ', 'contact' => 'ติดต่อ'];
 
-include __DIR__ . '/views/site_header.php';
+$pageTitle  = $title;
+$metaDesc   = str_limit((string) $u['intro'], 160) ?: null;
+$nav        = 'units';
+$popupWhere = 'unit';
+require BASE_PATH . '/app/views/header.php';
 ?>
-<div class="wrap">
-  <?php if ($u): ?>
-  <a class="back" href="<?= e(url('units.php')) ?>">‹ กลับสู่หน้าหน่วยงาน</a>
-  <div class="unithead">
-    <h1><?= e($u['name']) ?></h1>
-    <?= $u['about'] !== '' ? '<p>' . e($u['about']) . '</p>' : '' ?>
+<section class="unit-hero" style="background:<?= e($g['tint']) ?>">
+  <div class="bar" aria-hidden="true" style="background:<?= e($g['color']) ?>"></div>
+  <div class="deco" aria-hidden="true"><div style="height:180px;background:<?= e($g['color']) ?>"></div><div style="height:240px;background:<?= e($g['color']) ?>"></div><div style="height:200px;background:<?= e($g['color']) ?>"></div></div>
+  <div class="wrap">
+    <div class="unit-ic" style="background:<?= e($g['color']) ?>"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="<?= e($g['icon']) ?>"/></svg></div>
+    <div class="tx">
+      <div class="crumb"><a href="<?= e(url()) ?>">หน้าแรก</a>›<a href="<?= e($parentHref) ?>"><?= e($parentLabel) ?></a>›<span><?= e($u['name']) ?></span></div>
+      <h1 class="hd"><?= e($title) ?></h1>
+      <?php if ($u['name_en']): ?><div class="en" style="color:<?= e($g['color']) ?>"><?= e($u['name_en']) ?></div><?php endif; ?>
+    </div>
+  </div>
+</section>
+
+<nav class="unit-nav" aria-label="เมนูหน่วยงาน"><div class="wrap">
+  <?php foreach ($sections as $id => $label): ?><a href="#<?= $id ?>"><?= e($label) ?></a><?php endforeach; ?>
+  <a href="<?= e(url('news.php', ['u' => $u['slug']])) ?>">ข่าวทั้งหมด</a>
+</div></nav>
+
+<div class="wrap layout">
+  <div class="main-col">
+    <div class="about unit-sec" id="about">
+      <div class="img" style="background-color:<?= e($g['tint']) ?>;<?= $u['cover'] ? 'background-image:url(' . e(upload_url($u['cover'])) . ')' : 'background-image:repeating-linear-gradient(135deg,transparent 0 10px,rgba(19,33,58,.06) 10px 11px)' ?>"><?= $u['cover'] ? '' : 'ภาพหน้าปกหน่วยงาน' ?></div>
+      <div class="tx">
+        <h2>เกี่ยวกับ<?= $isDept ? 'แผนก' : 'หน่วยงาน' ?></h2>
+        <div class="prose" style="font-size:1rem;color:var(--mute)"><?= $u['intro'] ? text_to_html($u['intro']) : '<p>[คำแนะนำหน่วยงาน — ผู้ดูแลแก้ไขได้จากระบบจัดการ › เว็บไซต์ย่อยหน่วยงาน]</p>' ?></div>
+        <?php if ($isDept): ?>
+          <div class="chips"><?php foreach (['ปวช.', 'ปวส.', 'ทวิภาคี'] as $c): ?><span style="background:<?= e($g['tint']) ?>;color:<?= e($g['color']) ?>;border:1px solid <?= e($g['color']) ?>33"><?= $c ?></span><?php endforeach; ?></div>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <?php if ($works): ?>
+    <section class="unit-sec" id="works">
+      <h2>งานในสังกัด</h2>
+      <div class="cards">
+        <?php foreach ($works as $w): ?>
+          <a class="card" href="<?= e(unit_url($w)) ?>"><div class="c"><div class="t"><?= e($w['name']) ?></div><div class="m"><?= e(str_limit((string) $w['intro'], 80) ?: 'ดูหน้าหน่วยงาน →') ?></div></div></a>
+        <?php endforeach; ?>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <section class="unit-sec" id="news">
+      <div class="h"><h2 style="margin:0">ข่าวและกิจกรรมของหน่วยงาน</h2><a href="<?= e(url('news.php', ['u' => $u['slug']])) ?>" style="font-weight:600;text-decoration:none;font-size:.9375rem">ทั้งหมด ›</a></div>
+      <?php if (!$news): ?><p class="empty">ยังไม่มีข่าวของหน่วยงานนี้</p><?php endif; ?>
+      <div class="cards">
+        <?php foreach ($news as $n): ?>
+          <a class="card" href="<?= e(news_url($n)) ?>">
+            <div class="img<?= $n['cover'] ? '' : ' hatch' ?>" style="<?= $n['cover'] ? 'background-image:url(' . e(upload_url($n['cover'])) . ')' : '' ?>"></div>
+            <div class="c"><div class="m"><?= e(thai_date($n['published_at'], 'long')) ?></div><div class="t"><?= e($n['title']) ?></div></div>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </section>
+
+    <?php if ($people): ?>
+    <section class="unit-sec">
+      <h2>ผู้ดูแลเว็บไซต์หน่วยงาน</h2>
+      <p style="color:var(--mute)"><?= e(implode(' · ', array_filter(array_column($people, 'display_name')))) ?></p>
+    </section>
+    <?php endif; ?>
   </div>
 
-  <h2 class="sechead" style="font-size:21px">ข่าวและกิจกรรมของหน่วยงาน</h2>
-  <?php if ($unitNews): ?>
-  <div class="grid cols3">
-    <?php foreach ($unitNews as $n): ?>
-    <a class="card" href="<?= e(url('news_view.php?id=' . $n['id'])) ?>">
-      <span class="body">
-        <span class="chip"><?= e($n['category']) ?></span>
-        <h3><?= e($n['title']) ?></h3>
-        <p class="sum"><?= e(mb_strimwidth((string) $n['summary'], 0, 70, '…', 'UTF-8')) ?></p>
-        <span class="date"><?= e(fmt_dt($n['published_at'])) ?></span>
-      </span>
-    </a>
-    <?php endforeach; ?>
-  </div>
-  <?php else: ?>
-    <div class="empty">หน่วยงานนี้ยังไม่มีข่าวเผยแพร่</div>
-  <?php endif; ?>
-
-  <?php if ($u['contact_name'] !== '' || $u['contact_phone'] !== '' || $u['contact_email'] !== ''): ?>
-  <div class="contactbox" style="margin-top:24px">
-    <h3>ติดต่อหน่วยงาน</h3>
-    <?php if ($u['contact_name'] !== ''): ?><p>ผู้ติดต่อ: <?= e($u['contact_name']) ?></p><?php endif; ?>
-    <?php if ($u['contact_phone'] !== ''): ?><p>โทรศัพท์: <?= e($u['contact_phone']) ?></p><?php endif; ?>
-    <?php if ($u['contact_email'] !== ''): ?><p>อีเมล: <?= e($u['contact_email']) ?></p><?php endif; ?>
-  </div>
-  <?php endif; ?>
-  <?php else: ?>
-    <div class="empty">ไม่พบหน่วยงานที่ต้องการดู — <a href="<?= e(url('units.php')) ?>">กลับสู่หน้าหน่วยงาน</a></div>
-  <?php endif; ?>
+  <aside>
+    <div class="box unit-sec" id="contact">
+      <h3>ติดต่อหน่วยงาน</h3>
+      <div style="font-size:.9375rem;line-height:1.9;color:var(--mute)"><?= $u['contact'] ? nl2br(e($u['contact']), false) : 'อาคาร [ชื่ออาคาร] ชั้น [0]<br>โทร [000-000-000]<br>[อีเมลหน่วยงาน]' ?></div>
+      <?php if ($email = Settings::get('email')): ?>
+        <a class="btn-unit" style="background:<?= e($g['color']) ?>" href="mailto:<?= e($email) ?>?subject=<?= rawurlencode('ถึง' . $title) ?>">ส่งข้อความถึงหน่วยงาน</a>
+      <?php endif; ?>
+    </div>
+    <?php if ($u['parent_name']): ?>
+      <div class="box"><h3>สังกัด</h3><a class="row" href="<?= e($parentHref) ?>"><?= e($u['parent_name']) ?> →</a></div>
+    <?php endif; ?>
+  </aside>
 </div>
-<?php include __DIR__ . '/views/site_footer.php'; ?>
+<?php require BASE_PATH . '/app/views/footer.php';

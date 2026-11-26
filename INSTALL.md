@@ -1,60 +1,79 @@
-# เว็บไซต์วิทยาลัยอาชีวศึกษาร้อยเอ็ด — คู่มือติดตั้ง
+# เว็บไซต์วิทยาลัยอาชีวศึกษาร้อยเอ็ด — คู่มือติดตั้งและดูแลระบบ
 
-## ความต้องการระบบ
-- PHP **8.2 ขึ้นไป** (ขยาย: `pdo_mysql`)
-- MariaDB / MySQL **10.x ขึ้นไป**
-- ไม่ต้องใช้ Composer หรือ framework ใดๆ — PHP ล้วน + PDO
+## ความต้องการของระบบ
+- **PHP 8.2 ขึ้นไป** พร้อมส่วนขยาย `pdo`, `pdo_mysql`, `mbstring`, `json`, `fileinfo`, `session`, `openssl`
+  (แนะนำเพิ่ม: `gd`, `intl`, `zip`, `curl`, OPcache)
+- **MariaDB 10.0 ขึ้นไป** (หรือ MySQL 8+)
+- Apache ที่อ่าน `.htaccess` ได้ (`AllowOverride All`) — ใช้บล็อกโฟลเดอร์ `app/ config/ storage/ migrations/`
+  ถ้าใช้ Nginx ให้ตั้ง `deny all` ให้โฟลเดอร์เหล่านี้เอง และห้ามรันไฟล์ PHP ใน `uploads/`
+- ไม่ต้องใช้ Composer — PHP ล้วน
 
-## ขั้นตอนติดตั้ง
-1. คัดลอกโฟลเดอร์โปรเจกต์เข้า web root (เช่น `htdocs/rvc.web`)
-2. สร้างฐานข้อมูล MySQL/MariaDB ใหม่ (เช่น `rvc_web`)
-3. ตั้งสิทธิ์เขียนไดเรกทอรี `data/` และ `runtime/` (สำหรับอัปโหลดรูปและเซสชัน)
-4. เปิดเบราว์เซอร์ที่ `https://โดเมนของเว็บ/install.php`
-   - **ขั้น 1** ตรวจระบบ (เวอร์ชัน PHP, ขยาย PDO, ความสามารถในการเขียน)
-   - **ขั้น 2** กรอกรายการเชื่อมต่อฐานข้อมูล (host, port, user, password, ชื่อฐานข้อมูล)
-     ระบบจะทดสอบเชื่อมต่อและ**สร้างตารางทุกตัวผ่าน migrations อัตโนมัติ**
-   - **ขั้น 3** แสดงรายการ migrations ที่ติดตั้งแล้ว
-   - **ขั้น 4** ตั้งชื่อผู้ใช้และรหัสผ่านผู้ดูแลระบบ (รหัสผ่านถูกเก็บเป็น hash)
-5. หลังติดตั้งสำเร็จ **ลบหรือปิดการเข้าถึง `install.php`** ในเซิร์ฟเวอร์จริง
-   (ไฟล์จะตรวจว่าติดตั้งแล้ว และบล็อกการทำงานซ้ำอัตโนมัติอยู่แล้ว)
+## ติดตั้ง
+1. วางไฟล์ไว้ใน web root เช่น `htdocs/rvc.web`
+2. ให้ผู้ใช้ของเว็บเซิร์ฟเวอร์เขียนได้ที่ `config/`, `storage/` (รวม `sessions/`, `logs/`), `uploads/`
+   และ `migrations/` (ไม่บังคับ — ใช้สร้างไฟล์ migration จากหน้า admin)
+3. เปิด `http://โดเมน/rvc.web/install.php` แล้วทำตาม 5 ขั้น
+   1. **ตรวจระบบ** — เวอร์ชัน PHP, แพ็กเกจที่ต้องมี/แนะนำ, ค่า php.ini, สิทธิ์อ่าน/เขียนโฟลเดอร์
+   2. **ฐานข้อมูล** — ทดสอบเชื่อมต่อ ตรวจเวอร์ชัน MariaDB สร้างฐานข้อมูล (utf8mb4) และบันทึก `config/config.php`
+   3. **โครงสร้างข้อมูล** — รัน migrations ทั้งหมด
+   4. **ผู้ดูแลระบบ** — ตั้งชื่อผู้ใช้/รหัสผ่าน admin (เลือกใส่ข่าวตัวอย่างได้)
+   5. **เสร็จสิ้น** — สร้าง `storage/installed.lock` เพื่อล็อกตัวติดตั้ง
 
-> `install.php` ออกแบบให้**รันซ้ำได้ปลอดภัย** (idempotent) — ตารางใช้
-> `CREATE TABLE IF NOT EXISTS`, ข้อมูลตัวอย่างใส่เฉพาะตอนติดตั้งครั้งแรกเท่านั้น
+## การติดตั้งซ้ำ
+`install.php` รันซ้ำได้เสมอ:
+- **หลังติดตั้งแล้ว** หน้าจะถูกล็อก — ต้องเข้าสู่ระบบเป็นผู้ดูแลก่อนจึงใช้ได้
+- **อัปเกรด** — ขั้น 3 รันเฉพาะ migration ใหม่ ข้อมูลเดิมไม่หาย
+- **ย้ายฐานข้อมูล** — ขั้น 2 แก้ค่าการเชื่อมต่อแล้วบันทึกใหม่
+- **รีเซ็ตรหัสผู้ดูแล** — ขั้น 4 กรอกชื่อผู้ใช้เดิมพร้อมรหัสผ่านใหม่
+- **ติดตั้งใหม่ทั้งหมด** — ขั้น 3 › "ติดตั้งใหม่ทั้งหมด" (พิมพ์ชื่อฐานข้อมูลเพื่อยืนยัน) ระบบเรียก `down()` ของทุก migration
+  ลบเฉพาะตารางของระบบนี้ แล้วติดตั้งใหม่
+- **ลืมรหัสผ่าน / เข้าระบบไม่ได้** — ลบไฟล์ `storage/installed.lock` บนเซิร์ฟเวอร์ แล้วเปิด `install.php`
+  (ข้อมูลไม่หาย) ไปที่ขั้น 4 ตั้งรหัสผ่านใหม่ แล้วกด "เสร็จสิ้น" เพื่อล็อกอีกครั้ง
+
+## เมนู Migrations (ระบบจัดการ › ผู้ดูแลระบบ › Migrations)
+- ดูสถานะทุก migration: ติดตั้งแล้ว / รอติดตั้ง / ไฟล์ถูกแก้หลังรัน (ตรวจด้วย checksum) / ไม่พบไฟล์
+- รันทั้งหมดที่รอ หรือรันทีละรายการ — แต่ละครั้งเป็น "batch" ใหม่
+- ย้อนกลับ batch ล่าสุด (พิมพ์ `ROLLBACK` ยืนยัน) หรือย้อนกลับทีละรายการ
+- สร้างไฟล์ migration ใหม่จากแม่แบบ, ดูประวัติการรัน, ดูขนาดตาราง
+- กันการรันพร้อมกันด้วย `GET_LOCK` ของ MariaDB
+
+### เขียน migration
+ไฟล์ `migrations/YYYYMMDD_HHMMSS_ชื่อ.php` รันตามลำดับชื่อไฟล์:
+```php
+<?php
+return new class {
+    public string $description = 'เพิ่มคอลัมน์ subtitle ในข่าว';
+    public function up(PDO $db): void {
+        $db->exec("ALTER TABLE news ADD COLUMN IF NOT EXISTS subtitle VARCHAR(255) NULL AFTER title");
+    }
+    public function down(PDO $db): void {
+        $db->exec("ALTER TABLE news DROP COLUMN IF EXISTS subtitle");
+    }
+};
+```
+- คำสั่ง DDL ของ MariaDB commit อัตโนมัติ (ย้อนด้วย transaction ไม่ได้) จึงควรใช้ `IF NOT EXISTS` / `IF EXISTS` ให้รันซ้ำได้
+- อย่าแก้ไฟล์ที่รันไปแล้ว — สร้าง migration ใหม่แทน
 
 ## โครงสร้างไฟล์
 ```
-install.php            ตัวติดตั้ง (รันซ้ำได้)
-index.php              หน้าหลัก
-news.php / news_view.php   รายการข่าว / อ่านข่าว
-units.php / unit.php       รายการแผนก / หน้าแผนก
-config/
-  config.example.php   ตัวอย่าง config (คัดลอกเป็น config.php ได้ หรือกรอกใน install.php)
-  config.php          ข้อมูลเชื่อมต่อ DB (สร้างโดยตัวติดตั้ง — ไม่เข้า git)
-core/
-  bootstrap.php        โหลด config, session, classes
-  Database.php         PDO singleton
-  Auth.php             เข้าสู่ระบบผู้ดูแล (session + password_hash)
-  Csrf.php             กัน CSRF (ฟิลด์ hidden ในทุกฟอร์ม POST)
-  Settings.php         ค่าตั้งค่าจากตาราง settings
-  Migrate.php          รัน/ถอย migrations ตามไฟล์ใน migrations/
-migrations/            ไฟล์ migration (0001_core, 0002_content, 0003_popups)
-admin/                 แผงควบคุมผู้ดูแล
-  index.php            ล็อกอิน + แผงควบคุม
-  migrations.php       เมนู Migrations: ดูสถานะ / รัน / ถอย migration
-  news.php             จัดการข่าว (สร้าง/แก้ไข/ลบ/อัปโหลดรูป)
-  units.php            จัดการแผนกวิชา
-  popups.php           จัดการป๊อปอัพประกาศ (เลือกแสดงที่ home/main/all)
-  settings.php         ตั้งค่าเว็บ (ชื่อเว็บ, ข้อความผู้อำนวยการ ฯลฯ)
-  logout.php
-views/                 ส่วนหัว/ท้ายเว็บหน้าบ้าน
-assets/                CSS
-data/uploads/          รูปที่อัปโหลด (สร้างอัตโนมัติ)
-runtime/sessions/      ไฟล์เซสชัน
+install.php                ตัวติดตั้ง (รันซ้ำได้)
+index.php news.php news_view.php units.php unit.php page.php   หน้าเว็บสาธารณะ
+admin/                     ระบบจัดการ (ข่าว หน้าเว็บ ป๊อปอัพ หน่วยงาน ผู้ใช้ ตั้งค่า Migrations ตรวจสอบระบบ)
+app/                       แกนระบบ: bootstrap, Database, Auth, Csrf, Migrator, Requirements, Settings, views/
+migrations/                ไฟล์ migration
+config/config.php          สร้างโดยตัวติดตั้ง (ไม่เข้า git)
+storage/                   installed.lock, sessions/, logs/ (ไม่เข้า git)
+uploads/                   รูปที่อัปโหลด (ไม่เข้า git, ห้ามรันสคริปต์)
+assets/                    CSS/JS
+*.dc.html, canvas.json     ไฟล์ดีไซน์ต้นแบบ
 ```
 
-## การดูแลระบบ
-- **Migrations:** เพิ่มไฟล์ `migrations/000N_ชื่อ.php` (รูปแบบเดียวกับที่มี) แล้วเปิด
-  เมนู **Migrations** ใน admin เพื่อติดตั้ง (หรือรัน `install.php` ซ้ำก็ได้)
-- **สำรองข้อมูล:** สำรองฐานข้อมูล + โฟลเดอร์ `data/uploads` เป็นประจำ
-- **ความปลอดภัย:** เปลี่ยนรหัสผ่านผู้ดูแลเป็นประจำ, จำกัดการเข้าถึง
-  `install.php` และ `admin/` ในเซิร์ฟเวอร์จริง, ใช้ HTTPS
+## สิทธิ์ผู้ใช้
+| สิทธิ์ | ทำได้ |
+|---|---|
+| ผู้ดูแลระบบ | ทุกเมนู รวม Migrations, ผู้ใช้, ตั้งค่า, ตัวติดตั้ง |
+| ผู้เขียนข่าว | เขียนข่าวของหน่วยงานตน (ต้องรอผู้ดูแลอนุมัติ), ตั้งป๊อปอัพ |
+
+## ความปลอดภัย
+รหัสผ่าน bcrypt · CSRF ทุกฟอร์ม · จำกัดการเข้าสู่ระบบผิด 5 ครั้ง/15 นาที · ตรวจชนิดไฟล์อัปโหลดจากเนื้อไฟล์ ·
+ข้อความทุกจุด escape ก่อนแสดง · บนเซิร์ฟเวอร์จริงควรใช้ HTTPS และผู้ใช้ฐานข้อมูลที่มีสิทธิ์เฉพาะฐานข้อมูลนี้

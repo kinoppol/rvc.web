@@ -1,37 +1,46 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/core/bootstrap.php';
-require_installed();
+/* หน่วยงานทั้งหมด — แผนกวิชาตามกลุ่ม และฝ่าย/งาน */
 
-$siteName = Settings::get('site_name', 'เว็บไซต์');
-$pageTitle = 'หน่วยงาน';
-$navActive = 'units';
-$popupScope = 'unit';
+require __DIR__ . '/app/bootstrap.php';
 
-$units = Database::pdo()->query(
-    'SELECT u.*, (SELECT COUNT(*) FROM news n WHERE n.unit_id = u.id AND n.published_at <= NOW()) AS news_count
-     FROM units u ORDER BY u.sort_order, u.name'
-)->fetchAll();
+$groups    = departments_by_group();
+$divisions = divisions_with_works();
 
-include __DIR__ . '/views/site_header.php';
+$pageTitle  = 'หน่วยงาน';
+$nav        = 'units';
+$popupWhere = 'site';
+require BASE_PATH . '/app/views/header.php';
 ?>
-<div class="wrap">
-  <h2 class="sechead">หน่วยงาน</h2>
-  <?php if ($units): ?>
-  <div class="grid cols3">
-    <?php foreach ($units as $u): ?>
-    <a class="card" href="<?= e(url('unit.php?id=' . $u['id'])) ?>">
-      <span class="body">
-        <h3><?= e($u['name']) ?></h3>
-        <p class="sum"><?= e(mb_strimwidth((string) $u['about'], 0, 100, '…', 'UTF-8')) ?></p>
-        <span class="chip"><?= (int) $u['news_count'] ?> ข่าว</span>
-      </span>
-    </a>
-    <?php endforeach; ?>
+<div class="page-h"><div class="wrap">
+  <div class="crumb"><a href="<?= e(url()) ?>">หน้าแรก</a>›<span>หน่วยงาน</span></div>
+  <h1 class="hd">หน่วยงานและแผนกวิชา</h1>
+</div></div>
+<section class="sec" style="padding-top:48px">
+  <div class="wrap">
+    <div class="sec-h"><h2 class="hd">แผนกวิชา</h2></div>
+    <div class="depts">
+      <?php foreach ($groups as $key => $depts): $g = unit_group($key); ?>
+        <div class="dept-g" style="border-top-color:<?= e($g['color']) ?>">
+          <div class="hd gn" style="color:<?= e($g['color']) ?>"><?= e($g['label']) ?></div>
+          <div style="margin-top:10px"><?php foreach ($depts as $d): ?><a class="ul" href="<?= e(unit_url($d)) ?>"><?= e($d['name']) ?><span aria-hidden="true">→</span></a><?php endforeach; ?></div>
+        </div>
+      <?php endforeach; ?>
+    </div>
   </div>
-  <?php else: ?>
-    <div class="empty">ยังไม่มีข้อมูลหน่วยงาน — เพิ่มได้จากระบบผู้ดูแล</div>
-  <?php endif; ?>
-</div>
-<?php include __DIR__ . '/views/site_footer.php'; ?>
+</section>
+<section class="sec alt">
+  <div class="wrap">
+    <div class="sec-h"><h2 class="hd">ฝ่ายและงาน</h2></div>
+    <div class="depts">
+      <?php foreach ($divisions as $d): ?>
+        <div class="dept-g" style="border-top-color:#1f5aa6">
+          <a class="hd gn" href="<?= e(unit_url($d)) ?>" style="color:#1f5aa6;border:0;padding:0;display:block;font-size:1.25rem"><?= e($d['name']) ?></a>
+          <div style="margin-top:10px"><?php foreach ($d['works'] as $w): ?><a class="ul" href="<?= e(unit_url($w)) ?>"><?= e($w['name']) ?><span aria-hidden="true">→</span></a><?php endforeach; ?></div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+<?php require BASE_PATH . '/app/views/footer.php';

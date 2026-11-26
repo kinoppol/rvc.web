@@ -1,7 +1,14 @@
-# ไฟล์ที่สร้างขึ้นขณะรัน/ใช้งาน (มีรหัสผ่านหรือข้อมูล)
+# ไฟล์ที่สร้างขณะติดตั้ง/ใช้งาน (มีรหัสผ่านหรือข้อมูลผู้ใช้)
 /config/config.php
-/data/uploads/*
-/data/uploads/.gitkeep
-/runtime/*
-/runtime/.gitkeep
-!/.gitignore
+/config/*.tmp
+/storage/installed.lock
+/storage/sessions/*
+/storage/logs/*
+/uploads/*
+!/storage/sessions/.gitkeep
+!/storage/logs/.gitkeep
+!/uploads/.gitkeep
+!/uploads/.htaccess
+*.tmp
+.DS_Store
+Thumbs.db

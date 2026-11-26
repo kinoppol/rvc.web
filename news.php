@@ -1,66 +1,73 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/core/bootstrap.php';
-require_installed();
+/* รายการข่าวทั้งหมด — กรองหมวด หน่วยงาน และค้นหา */
 
-$siteName = Settings::get('site_name', 'เว็บไซต์');
-$pageTitle = 'ข่าวสาร';
-$navActive = 'news';
-$popupScope = 'main';
+require __DIR__ . '/app/bootstrap.php';
 
-$cats  = news_categories();
-$cat   = trim((string) ($_GET['cat'] ?? ''));
-$q     = trim((string) ($_GET['q'] ?? ''));
+$cat  = array_key_exists(input('cat'), NEWS_CATEGORIES) ? input('cat') : '';
+$q    = mb_substr(input('q'), 0, 100);
+$unit = input('u');
+$unitRow = $unit !== '' ? Database::one('SELECT * FROM units WHERE slug = ? AND is_active = 1', [$unit]) : null;
 
-$sql = 'SELECT n.*, u.name AS unit_name FROM news n LEFT JOIN units u ON u.id = n.unit_id
-        WHERE n.published_at <= NOW()';
-$args = [];
-if ($cat !== '' && in_array($cat, $cats, true)) {
-    $sql .= ' AND n.category = ?';
-    $args[] = $cat;
+$where  = [NEWS_PUBLIC];
+$params = [];
+if ($cat !== '') {
+    $where[]  = 'n.category = ?';
+    $params[] = $cat;
+}
+if ($unitRow) {
+    $where[]  = 'n.unit_id = ?';
+    $params[] = $unitRow['id'];
 }
 if ($q !== '') {
-    $sql .= ' AND n.title LIKE ?';
-    $args[] = '%' . $q . '%';
+    $where[]  = '(n.title LIKE ? OR n.excerpt LIKE ?)';
+    $like     = '%' . addcslashes($q, '%_\\') . '%';
+    array_push($params, $like, $like);
 }
-$sql .= ' ORDER BY n.published_at DESC LIMIT 50';
-$st = Database::pdo()->prepare($sql);
-$st->execute($args);
-$news = $st->fetchAll();
+$w     = implode(' AND ', $where);
+$total = (int) Database::value("SELECT COUNT(*) FROM news n WHERE $w", $params);
+$pg    = paginate($total, 12, input_int('page', 1));
+$rows  = Database::all("SELECT n.*, u.name AS unit_name, u.kind AS unit_kind, u.group_key FROM news n LEFT JOIN units u ON u.id = n.unit_id
+                        WHERE $w ORDER BY n.published_at DESC, n.id DESC LIMIT {$pg['limit']} OFFSET {$pg['offset']}", $params);
 
-include __DIR__ . '/views/site_header.php';
+$heading    = $unitRow ? 'ข่าวของ' . unit_title($unitRow) : ($cat ? NEWS_CATEGORIES[$cat] : 'ข่าวสารทั้งหมด');
+$pageTitle  = $heading;
+$nav        = 'news';
+$popupWhere = 'site';
+require BASE_PATH . '/app/views/header.php';
 ?>
-<div class="wrap">
-  <h2 class="sechead">ข่าวสารและประกาศ</h2>
-  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-    <input type="text" name="q" value="<?= e($q) ?>" placeholder="ค้นหาจากหัวข้อข่าว"
-           style="flex:1 1 220px;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:4px">
-    <select name="cat" style="min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:4px">
-      <option value="">ทุกหมวด</option>
-      <?php foreach ($cats as $c): ?>
-        <option value="<?= e($c) ?>" <?= $cat === $c ? 'selected' : '' ?>><?= e($c) ?></option>
-      <?php endforeach; ?>
-    </select>
-    <button style="min-height:44px;padding:8px 20px;border:0;border-radius:4px;background:#1f5aa6;color:#fff;font-weight:600;cursor:pointer">ค้นหา</button>
+<div class="page-h"><div class="wrap">
+  <div class="crumb"><a href="<?= e(url()) ?>">หน้าแรก</a>›<a href="<?= e(url('news.php')) ?>">ข่าวสาร</a><?php if ($cat || $unitRow): ?>›<span><?= e($heading) ?></span><?php endif; ?></div>
+  <h1 class="hd"><?= e($heading) ?></h1>
+</div></div>
+<div class="wrap" style="padding-top:32px;padding-bottom:72px">
+  <form class="filters" method="get" role="search">
+    <?php if ($unitRow): ?><input type="hidden" name="u" value="<?= e($unitRow['slug']) ?>"><?php endif; ?>
+    <label for="q" style="position:absolute;left:-9999px">ค้นหาข่าว</label>
+    <input id="q" type="search" name="q" value="<?= e($q) ?>" placeholder="ค้นหาข่าว">
+    <label for="cat" style="position:absolute;left:-9999px">หมวด</label>
+    <select id="cat" name="cat"><option value="">ทุกหมวด</option><?php foreach (NEWS_CATEGORIES as $k => $v): ?><option value="<?= e($k) ?>" <?= $cat === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select>
+    <button type="submit">ค้นหา</button>
   </form>
-
-  <?php if ($news): ?>
-  <div class="grid cols3">
-    <?php foreach ($news as $n): ?>
-    <a class="card" href="<?= e(url('news_view.php?id=' . $n['id'])) ?>">
-      <span class="thumb"><?= $n['image_path'] !== '' ? '<img src="' . e(url('data/uploads/' . $n['image_path'])) . '" alt="">' : '' ?></span>
-      <span class="body">
-        <span class="chip"><?= e($n['category']) ?></span>
-        <h3><?= e($n['title']) ?></h3>
-        <p class="sum"><?= e(mb_strimwidth((string) $n['summary'], 0, 80, '…', 'UTF-8')) ?></p>
-        <span class="date"><?= $n['unit_name'] !== '' ? e($n['unit_name']) . ' · ' : '' ?><?= e(fmt_dt($n['published_at'])) ?></span>
-      </span>
-    </a>
-    <?php endforeach; ?>
-  </div>
+  <?php if (!$rows): ?>
+    <p class="empty">ไม่พบข่าว<?= $q !== '' ? 'ที่ตรงกับ "' . e($q) . '"' : '' ?></p>
   <?php else: ?>
-    <div class="empty">ไม่พบข่าวตามเงื่อนไขที่ค้นหา</div>
+    <p class="small" style="color:var(--mute);margin:-8px 0 20px">ทั้งหมด <?= number_format($total) ?> ข่าว</p>
+    <div class="cards">
+      <?php foreach ($rows as $n): [$tag, $color, $tint] = news_tag($n); ?>
+        <a class="card" href="<?= e(news_url($n)) ?>">
+          <div class="img<?= $n['cover'] ? '' : ' hatch' ?>" style="background-color:<?= e($tint) ?>;<?= $n['cover'] ? 'background-image:url(' . e(upload_url($n['cover'])) . ')' : '' ?>"></div>
+          <div class="c"><div class="m"><span style="color:<?= e($color) ?>;font-weight:600"><?= e($tag) ?></span> · <?= e(thai_date($n['published_at'])) ?></div>
+            <div class="t"><?= e($n['title']) ?></div></div>
+        </a>
+      <?php endforeach; ?>
+    </div>
+    <?php if ($pg['pages'] > 1): ?>
+      <nav class="pager" aria-label="หน้า"><?php for ($i = 1; $i <= $pg['pages']; $i++): ?>
+        <?php if ($i === $pg['page']): ?><span class="on" aria-current="page"><?= $i ?></span><?php else: ?><a href="<?= e(url('news.php', ['cat' => $cat, 'q' => $q, 'u' => $unitRow['slug'] ?? null, 'page' => $i])) ?>"><?= $i ?></a><?php endif; ?>
+      <?php endfor; ?></nav>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
-<?php include __DIR__ . '/views/site_footer.php'; ?>
+<?php require BASE_PATH . '/app/views/footer.php';

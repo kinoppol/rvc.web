@@ -1,440 +1,585 @@
 <?php
 declare(strict_types=1);
 
-/**
- * ตัวติดตั้ง — รองรับการใช้งานซ้ำ (reinstall-safe)
+/*
+ * ตัวติดตั้งเว็บไซต์ — รองรับการติดตั้งซ้ำ
  *
- * ขั้นตอน:
- *   1) ตรวจระบบ        : เวอร์ชัน PHP ≥ 8.2, extension ที่จำเป็น, สิทธิ์อ่าน/เขียนโฟลเดอร์
- *   2) ตั้งค่าฐานข้อมูล  : ทดสอบเชื่อมต่อ MariaDB ≥ 10, สร้างฐานข้อมูลอัตโนมัติ, บันทึก config.php
- *   3) Migrations       : สร้าง/ปรับปรุงโครงสร้างตาราง (รันเฉพาะรายการที่ยังไม่ได้ทำ)
- *   4) ผู้ดูแลระบบ     : ตั้งค่าชื่อผู้ใช้-รหัสผ่าน admin (สร้างใหม่ หรืออัปเดตบัญชีเดิม)
+ *   1) ตรวจระบบ        PHP 8.2+, แพ็กเกจ (ส่วนขยาย PHP), สิทธิ์อ่าน/เขียนไฟล์
+ *   2) ฐานข้อมูล       เชื่อมต่อ MariaDB 10+, สร้างฐานข้อมูล, บันทึก config/config.php
+ *   3) โครงสร้างข้อมูล  รัน migrations ที่ยังไม่ได้รัน (อัปเกรดโดยเก็บข้อมูลเดิม) หรือล้างแล้วติดตั้งใหม่
+ *   4) ผู้ดูแลระบบ     ตั้งชื่อผู้ใช้และรหัสผ่านของ admin (สร้างใหม่ หรือรีเซ็ตบัญชีเดิม)
+ *   5) เสร็จสิ้น        ล็อกตัวติดตั้ง (storage/installed.lock)
+ *
+ * เมื่อติดตั้งเสร็จแล้ว การเปิดหน้านี้อีกครั้งต้องเข้าสู่ระบบเป็นผู้ดูแลก่อน
+ * ถ้าเข้าระบบไม่ได้ (ลืมรหัสผ่าน / ฐานข้อมูลเปลี่ยน) ให้ลบไฟล์ storage/installed.lock บนเซิร์ฟเวอร์
  */
 
 define('BASE_PATH', __DIR__);
+const APP_VERSION = '1.0.0';
 
 error_reporting(E_ALL);
+ini_set('display_errors', '0');
 date_default_timezone_set('Asia/Bangkok');
+mb_internal_encoding('UTF-8');
 
-require BASE_PATH . '/core/helpers.php';
-require BASE_PATH . '/core/Database.php';
-require BASE_PATH . '/core/Migrate.php';
+if (version_compare(PHP_VERSION, '8.2.0', '<')) {
+    http_response_code(500);
+    exit('ต้องใช้ PHP 8.2 ขึ้นไป (ปัจจุบัน ' . PHP_VERSION . ')');
+}
+
+require BASE_PATH . '/app/helpers.php';
+require BASE_PATH . '/app/Database.php';
+require BASE_PATH . '/app/Auth.php';
+require BASE_PATH . '/app/Csrf.php';
+require BASE_PATH . '/app/Migrator.php';
+require BASE_PATH . '/app/Requirements.php';
+require BASE_PATH . '/app/content.php';
 
 $configFile = BASE_PATH . '/config/config.php';
-$config     = is_file($configFile) ? require $configFile : null;
-$dbCfg      = ($config['db'] ?? null) ?: [
-    'host' => '127.0.0.1',
-    'port' => 3306,
-    'name' => 'rvc_web',
-    'user' => 'root',
-    'pass' => '',
-];
-$installed  = Database::installed($dbCfg);
-
-$phpReq     = '8.2.0';
-$reqExt     = ['pdo_mysql', 'mbstring', 'json', 'fileinfo'];
-$recExt     = ['openssl'];
-$needDirs   = [
-    'config'          => 'config.php (การตั้งค่า)',
-    'data/uploads'    => 'ไฟล์อัปโหลด',
-    'runtime/sessions'=> 'session',
-];
-
-$checks = null;    // ผลตรวจระบบ
-$dbMsg  = null;    // ['ok'=>bool,'text'=>string]
-$migMsg = null;    // ผลรัน migration
-$adminMsg = null;  // ['ok'=>bool,'text'=>string]
-$errors = [];
-
-/* ----------------------------- การกระทำ (POST) ----------------------------- */
-$action = $_POST['action'] ?? '';
-
-if ($action === 'check') {
-    $checks = [];
-    $checks[] = ['ok' => version_compare(PHP_VERSION, $phpReq, '>='), 'level' => 'req',
-        'name' => 'เวอร์ชัน PHP ' . $phpReq . ' ขึ้นไป', 'detail' => 'พบ ' . PHP_VERSION];
-    foreach ($reqExt as $ext) {
-        $checks[] = ['ok' => extension_loaded($ext), 'level' => 'req',
-            'name' => "ส่วนขยาย {$ext}", 'detail' => extension_loaded($ext) ? 'ติดตั้งแล้ว' : 'ไม่พบ — ต้องติดตั้งก่อน'];
-    }
-    foreach ($recExt as $ext) {
-        $checks[] = ['ok' => extension_loaded($ext), 'level' => 'rec',
-            'name' => "ส่วนขยาย {$ext} (แนะนำ)", 'detail' => extension_loaded($ext) ? 'ติดตั้งแล้ว' : 'ไม่พบ (ไม่บังคับ)'];
-    }
-    foreach ($needDirs as $rel => $desc) {
-        $path = BASE_PATH . '/' . $rel;
-        if (!is_dir($path)) {
-            @mkdir($path, 0775, true);
-        }
-        $ok = is_dir($path) && is_writable($path);
-        $checks[] = ['ok' => $ok, 'level' => 'req',
-            'name' => "สิทธิ์เขียนโฟลเดอร์ {$rel}", 'detail' => ($ok ? 'อ่าน/เขียนได้' : 'ไม่มีสิทธิ์เขียน — แก้สิทธิ์ในเซิร์ฟเวอร์') . ' (' . $desc . ')'];
-    }
-    $checks[] = ['ok' => is_writable(BASE_PATH . '/config'), 'level' => 'req',
-        'name' => 'สิทธิ์เขียนไฟล์ config/config.php', 'detail' => is_writable(BASE_PATH . '/config') ? 'บันทึกการตั้งค่าได้' : 'ไม่มีสิทธิ์เขียน'];
+$lockFile   = BASE_PATH . '/storage/installed.lock';
+$config     = is_file($configFile) ? (require $configFile) : null;
+$config     = is_array($config) ? $config : null;
+if ($config) {
+    $GLOBALS['config'] = $config;
+    date_default_timezone_set($config['app']['timezone'] ?? 'Asia/Bangkok');
 }
 
-if ($action === 'db') {
-    $dbCfg = [
-        'host' => trim((string) ($_POST['db_host'] ?? $dbCfg['host'])),
-        'port' => (int) ($_POST['db_port'] ?? $dbCfg['port']),
-        'name' => trim((string) ($_POST['db_name'] ?? $dbCfg['name'])),
-        'user' => trim((string) ($_POST['db_user'] ?? $dbCfg['user'])),
-        'pass' => (string) ($_POST['db_pass'] ?? $dbCfg['pass']),
-    ];
-    if ($dbCfg['host'] === '' || $dbCfg['name'] === '' || !preg_match('/^[A-Za-z0-9_$]+$/', $dbCfg['name'])
-        || $dbCfg['port'] < 1 || $dbCfg['port'] > 65535) {
-        $dbMsg = ['ok' => false, 'text' => 'กรุณากรอกข้อมูลการเชื่อมต่อให้ครบถ้วน (ชื่อฐานข้อมูลใช้ตัวอักษร/ตัวเลขเท่านั้น)'];
-    } else {
-        $res = Database::test($dbCfg, ($_POST['create_db'] ?? '') === '1');
-        $dbMsg = ['ok' => (bool) $res['ok'], 'text' => $res['message']];
-        if ($res['ok']) {
-            $newCfg = [
-                'db'          => $dbCfg,
-                'site'        => $config['site'] ?? ['name' => 'เว็บไซต์'],
-                'installed_at'=> $config['installed_at'] ?? date('Y-m-d H:i:s'),
-            ];
-            $code = "<?php\n//.ไฟล์ที่สร้างโดย install.php — " . date('Y-m-d H:i:s') . "\n//.แก้ไขได้ตรงๆ หรือรัน install.php ซ้ำเพื่อตั้งค่าใหม่\nreturn " . var_export($newCfg, true) . ";\n";
-            $tmp  = $configFile . '.tmp';
-            if (@file_put_contents($tmp, $code) !== false && @rename($tmp, $configFile)) {
-                $dbMsg['text'] .= ' — บันทึก config.php แล้ว';
-            } else {
-                $dbMsg = ['ok' => false, 'text' => 'เชื่อมต่อสำเร็จแต่บันทึก config.php ไม่ได้ — ตรวจสิทธิ์เขียนของโฟลเดอร์ config/'];
-            }
-        }
-    }
-}
+Auth::startSession();
 
-if ($action === 'migrate') {
-    $pdo = null;
+/** เชื่อมต่อฐานข้อมูลตาม config ปัจจุบัน (null ถ้าไม่ได้) */
+function inst_pdo(?array $config, ?string &$error = null): ?PDO
+{
+    if (empty($config['db'])) {
+        return null;
+    }
     try {
-        $safe = preg_replace('/[^A-Za-z0-9_$]/', '', $dbCfg['name'] ?? '');
-        $pdo  = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-                (string) $dbCfg['host'], (int) $dbCfg['port'], $safe),
-            (string) $dbCfg['user'], (string) $dbCfg['pass'],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $ran   = 0;
-        $lines = [];
-        foreach (Migrate::status($pdo) as $r) {
-            if ($r['applied'] !== null) {
-                continue;
-            }
-            $res = Migrate::run($pdo, $r['version']);
-            if ($res['ok']) {
-                $ran++;
-                $lines[] = "✔ {$r['version']} — {$r['name']}";
-            } else {
-                $lines[] = "✘ {$r['version']} — {$r['name']}: {$res['error']}";
-                $migMsg  = ['ok' => false, 'text' => implode("\n", $lines)];
-                break;
-            }
+        return Database::connect($config['db']);
+    } catch (Throwable $ex) {
+        $error = $ex->getMessage();
+        return null;
+    }
+}
+
+$dbError = null;
+$pdo     = inst_pdo($config, $dbError);
+if ($pdo && $config) {
+    Database::configure($config['db']);
+}
+
+/* ------------------------- ล็อกหลังติดตั้งเสร็จ ------------------------- */
+$installedInfo = is_file($lockFile) ? (json_decode((string) file_get_contents($lockFile), true) ?: []) : null;
+if ($installedInfo !== null) {
+    $me = null;
+    try {
+        $me = $pdo ? Auth::user() : null;
+    } catch (Throwable) {
+        $me = null;
+    }
+    if (($me['role'] ?? '') !== 'admin') {
+        http_response_code(403);
+        $_SESSION['after_login'] = url('install.php');
+        ?><!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>ตัวติดตั้งถูกล็อก</title><style>body{font-family:'IBM Plex Sans Thai',Tahoma,sans-serif;background:#f4f7fb;color:#13213a;margin:0;padding:56px 16px}
+        .b{max-width:560px;margin:auto;background:#fff;border:1px solid #d5ddea;border-top:4px solid #0b2a55;border-radius:4px;padding:28px}
+        a.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:3px;background:#0b2a55;color:#fff;font-weight:600;text-decoration:none}
+        code{background:#f4f7fb;border:1px solid #d5ddea;padding:1px 6px;border-radius:3px}.m{color:#4a5a74;font-size:14px;line-height:1.7}</style></head>
+        <body><div class="b"><h1 style="margin:0 0 8px;font-size:22px">🔒 ระบบติดตั้งเรียบร้อยแล้ว</h1>
+        <p>ติดตั้งเมื่อ <?= e(thai_date($installedInfo['installed_at'] ?? null, 'time')) ?> · เวอร์ชัน <?= e($installedInfo['version'] ?? '-') ?></p>
+        <p>การใช้ตัวติดตั้งซ้ำ (ตรวจระบบ ตั้งค่าฐานข้อมูล อัปเกรดโครงสร้าง หรือรีเซ็ตรหัสผู้ดูแล) ต้องเข้าสู่ระบบในฐานะผู้ดูแลระบบก่อน</p>
+        <p><a class="btn" href="<?= e(url('admin/login.php')) ?>">เข้าสู่ระบบผู้ดูแล</a></p>
+        <p class="m">เข้าสู่ระบบไม่ได้ (ลืมรหัสผ่าน หรือย้ายฐานข้อมูล)? ลบไฟล์ <code>storage/installed.lock</code> บนเซิร์ฟเวอร์เพื่อปลดล็อกตัวติดตั้ง
+        แล้วกลับมาที่หน้านี้ — ข้อมูลเดิมจะไม่ถูกลบ<?= $dbError ? '<br>สถานะฐานข้อมูล: เชื่อมต่อไม่ได้' : '' ?></p></div></body></html><?php
+        exit;
+    }
+}
+
+Csrf::verify();
+
+/* ------------------------------ สถานะของแต่ละขั้น ------------------------------ */
+$checks   = Requirements::check();
+$reqOk    = Requirements::passes($checks);
+$server   = null;   // [ok, ข้อความ]
+$status   = [];     // สถานะ migrations
+$hasAdmin = false;
+$admins   = [];
+$newsCount = 0;
+
+if ($pdo) {
+    try {
+        $server = Requirements::checkServer($pdo);
+        $mig    = new Migrator($pdo, BASE_PATH . '/migrations', 'installer');
+        $status = $mig->status();
+        if (Database::tableExists($pdo, 'users')) {
+            $admins   = $pdo->query("SELECT id, username, display_name, last_login_at FROM users WHERE role = 'admin' ORDER BY id")->fetchAll();
+            $hasAdmin = $admins !== [];
         }
-        if ($migMsg === null) {
-            $text = $ran > 0
-                ? 'ติดตั้ง/ปรับปรุงโครงสร้างฐานข้อมูลสำเร็จ ' . $ran . ' รายการ:' . "\n" . implode("\n", $lines)
-                : 'โครงสร้างฐานข้อมูลเป็นปัจจุบันแล้ว — ไม่มีการเปลี่ยนแปลง';
-            $migMsg = ['ok' => true, 'text' => $text];
+        if (Database::tableExists($pdo, 'news')) {
+            $newsCount = (int) $pdo->query('SELECT COUNT(*) FROM news')->fetchColumn();
         }
     } catch (Throwable $ex) {
-        $migMsg = ['ok' => false, 'text' => 'เชื่อมต่อฐานข้อมูลเพื่อรัน migration ไม่สำเร็จ: ' . $ex->getMessage()];
+        $dbError = $ex->getMessage();
     }
-    $installed = $pdo ? Database::installed($dbCfg) : $installed;
 }
-
-if ($action === 'admin') {
-    $username  = trim((string) ($_POST['admin_user'] ?? ''));
-    $password  = (string) ($_POST['admin_pass'] ?? '');
-    $password2 = (string) ($_POST['admin_pass2'] ?? '');
-    if (!preg_match('/^[A-Za-z0-9_.\-]{3,60}$/', $username)) {
-        $adminMsg = ['ok' => false, 'text' => 'ชื่อผู้ใช้ต้องเป็น 3–60 ตัวอักษร (อักษร/ตัวเลข/_ . -)'];
-    } elseif (strlen($password) < 8) {
-        $adminMsg = ['ok' => false, 'text' => 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'];
-    } elseif ($password !== $password2) {
-        $adminMsg = ['ok' => false, 'text' => 'รหัสผ่านกับยืนยันรหัสผ่านไม่ตรงกัน'];
-    } else {
-        try {
-            $safe = preg_replace('/[^A-Za-z0-9_$]/', '', $dbCfg['name'] ?? '');
-            $pdo  = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-                    (string) $dbCfg['host'], (int) $dbCfg['port'], $safe),
-                (string) $dbCfg['user'], (string) $dbCfg['pass'],
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            $st   = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
-            $st->execute([$username]);
-            $existing = $st->fetch();
-            if ($existing) {
-                $up = $pdo->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?');
-                $up->execute([$hash, $existing['id']]);
-                $adminMsg = ['ok' => true, 'text' => "อัปเดตรหัสผ่านของผู้ดูแล '{$username}' แล้ว"];
-            } else {
-                $ins = $pdo->prepare('INSERT INTO users (username, password_hash, display_name, role, created_at, updated_at) VALUES (?,?,?,\'admin\',NOW(),NOW())');
-                $ins->execute([$username, $hash, $username]);
-                $adminMsg = ['ok' => true, 'text' => "สร้างบัญชีผู้ดูแล '{$username}' สำเร็จ"];
-                seed_demo_data($pdo);
-            }
-        } catch (Throwable $ex) {
-            $adminMsg = ['ok' => false, 'text' => 'บันทึกผู้ดูแลระบบไม่สำเร็จ: ' . $ex->getMessage()];
+$pending   = array_values(array_filter($status, fn($r) => $r['state'] === 'pending'));
+$appliedN  = count(array_filter($status, fn($r) => in_array($r['state'], ['applied', 'modified'], true)));
+// ตารางชื่อซ้ำที่มีอยู่ก่อน แต่ไม่ได้สร้างผ่าน migrations ของระบบนี้ (เช่น ระบบเก่า)
+$conflicts = [];
+if ($pdo && $appliedN === 0) {
+    foreach (['users', 'login_attempts', 'settings', 'units', 'news', 'pages', 'popups'] as $t) {
+        if (Database::tableExists($pdo, $t)) {
+            $conflicts[] = $t;
         }
     }
-    $installed = $pdo ?? null ? Database::installed($dbCfg) : $installed;
+}
+$dbOk      = $pdo !== null && ($server[0] ?? false);
+$schemaOk  = $dbOk && $status !== [] && $pending === [];
+
+// ขั้นสูงสุดที่ไปได้
+$maxStep = 1;
+if ($reqOk) {
+    $maxStep = 2;
+    if ($dbOk) {
+        $maxStep = 3;
+        if ($schemaOk) {
+            $maxStep = $hasAdmin ? 5 : 4;
+        }
+    }
+}
+$step = input_int('step', 0);
+if ($step < 1 || $step > $maxStep) {
+    $step = $maxStep;
 }
 
-/** ใส่ข้อมูลตัวอย่างตอนติดตั้งครั้งแรก (ทำเพียงครั้งเดียว) */
-function seed_demo_data(PDO $db): void
+function go(int $step): never
 {
-    $st = $db->query("SELECT value FROM settings WHERE `key` = 'seeded'");
-    if ($st->fetch()) {
-        return;
-    }
-    $set = function (string $k, string $v) use ($db): void {
-        $s = $db->prepare('INSERT INTO settings (`key`, value) VALUES (?,?) ON DUPLICATE KEY UPDATE value = VALUES(value)');
-        $s->execute([$k, $v]);
-    };
-    $set('site_name', 'วิทยาลัยอาชีวศึกษาร้อยเอ็ด');
-    $set('site_footer', '© วิทยาลัยอาชีวศึกษาร้อยเอ็ด — ข้อมูลในเว็บไซต์นี้เพื่อใช้ประกอบการพัฒนา');
-    $set('principal_title', 'สารจากผู้อำนวยการ');
-    $set('principal_message', "ขอเรียนเชิญผู้บริหาร ครู คณาจารย์ และนักศึกษา ทุกท่าน ร่วมเป็นส่วนหนึ่งของชุมชนแห่งการเรียนรู้ของวิทยาลัย
-เรายึดมั่นในปรัชญาการพัฒนาผู้เรียนให้เก่งวิชา เก่งทักษะ และเก่งชีวิต เพื่อเตรียมพร้อมสู่โลกการทำงานอย่างยั่งยืน");
-    $set('seeded', '1');
-
-    $units = [
-        ['แผนกวิชาการโรงแรม', 'มุ่งพัฒนาผู้เรียนด้านวิชาชีพโรงแรม งานบริการอาหารและเครื่องดื่ม และการจัดการเชิงพาณิชย์', 'คุณสมร', '0-4523-8000', 'hotel@rvc.ac.th', 1],
-        ['แผนกคอมพิวเตอร์ธุรกิจ', 'ผลิตบุคลากรด้านธุรกิจดิจิทัล ระบบสารสนเทศ และการออกแบบสื่อ', 'คุณอนันต์', '0-4523-8001', 'ict@rvc.ac.th', 2],
-        ['แผนกบัญชี', 'พัฒนาศักยภาพผู้เรียนด้านวิชาชีพบัญชี การเงิน และระบบ ERP', 'คุณวรา', '0-4523-8002', 'acc@rvc.ac.th', 3],
-    ];
-    $ui = $db->prepare('INSERT INTO units (name, about, contact_name, contact_phone, contact_email, sort_order, created_at, updated_at) VALUES (?,?,?,?,?, ?,NOW(),NOW())');
-    foreach ($units as $u) {
-        $ui->execute([ $u[0], $u[1], $u[2], $u[3], $u[4], $u[5] ]);
-    }
-    $unitIds = $db->query('SELECT id FROM units ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
-
-    $news = [
-        ['นักศึกษาแผนกวิชาการโรงแรมผ่านการฝึกงานโรงแรมระดับสี่ดาว', 'กิจกรรม', $unitIds[0] ?? null, 1],
-        ['เปิดรับสมัครนักเรียนประจำปีการศึกษา 2569 ทุกสาขาวิชา', 'ประชาสัมพันธ์', null, 0],
-        ['ประกวดทักษะการบัญชีระดับอาชีวศึกษา — คว้ารางวัลรองชนะเลิศ', 'จัดซื้อจัดจ้าง', $unitIds[2] ?? null, 0],
-    ];
-    $ni = $db->prepare('INSERT INTO news (title, summary, body, category, unit_id, is_lead, published_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())');
-    $days = [2, 5, 9];
-    foreach ($news as $i => $n) {
-        $when = date('Y-m-d H:i:s', strtotime("-{$days[$i]} days"));
-        $unitId = $n[2] ?? null;
-        $body = $n[0] . "\n\n" . 'รายละเอียดของข่าวนี้อยู่ในฐานข้อมูล — สามารถแก้ไขได้จากเมนูข่าวสารของระบบผู้ดูแล';
-        $ni->execute([$n[0], $n[0], $body, $n[1], $unitId, $n[3], $when]);
-    }
-
-    $pi = $db->prepare('INSERT INTO popups (title, body, link_url, starts_at, ends_at, placement, enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())');
-    $pi->execute([
-        'วันพ่อแห่งชาติ 5 ธันวาคม',
-        "ขอเชิญร่วมกิจกรรมเฉลิมพระเกียรติ วันพ่อแห่งชาติ\nพิธีลงนามสักการะพระบรมรูป และรับคำอวยพร",
-        'news.php',
-        date('Y-m-d H:i:s', time() - 3600),
-        date('Y-m-d H:i:s', time() + 7 * 86400),
-        'all',
-        1,
-    ]);
+    redirect(url('install.php', ['step' => $step]));
 }
 
-$allChecksOk = $checks !== null && !array_filter($checks, fn (array $c) => !$c['ok'] && $c['level'] === 'req');
+/* ------------------------------ การกระทำ (POST) ------------------------------ */
+$action = is_post() ? input('action') : '';
 
-/* ----------------------------- แสดงหน้าติดตั้ง ----------------------------- */
+/** บันทึก config.php */
+function save_config(array $db, ?array $old): bool
+{
+    $cfg = [
+        'app' => [
+            'name'     => $old['app']['name'] ?? 'วิทยาลัยอาชีวศึกษาร้อยเอ็ด',
+            'timezone' => $old['app']['timezone'] ?? 'Asia/Bangkok',
+            'debug'    => $old['app']['debug'] ?? false,
+            'base_url' => $old['app']['base_url'] ?? '',
+        ],
+        'db' => $db,
+        'created_at' => $old['created_at'] ?? date('Y-m-d H:i:s'),
+        'updated_at' => date('Y-m-d H:i:s'),
+    ];
+    $code = "<?php\n// สร้างโดย install.php — แก้ไขได้โดยตรง หรือรัน install.php ซ้ำเพื่อตั้งค่าใหม่\n// ห้ามนำไฟล์นี้ขึ้น git (มีรหัสผ่านฐานข้อมูล)\nreturn " . var_export($cfg, true) . ";\n";
+    return write_file_atomic(BASE_PATH . '/config/config.php', $code);
+}
+
+if ($action === 'save_db' && $reqOk) {
+    $db = [
+        'host' => input('db_host', '127.0.0.1'),
+        'port' => input_int('db_port', 3306),
+        'name' => input('db_name'),
+        'user' => input('db_user'),
+        'pass' => (string) ($_POST['db_pass'] ?? ''),
+    ];
+    if ($db['pass'] === '' && !empty($_POST['keep_pass']) && $config) {
+        $db['pass'] = (string) ($config['db']['pass'] ?? '');
+    }
+    $_SESSION['_db_form'] = array_diff_key($db, ['pass' => 1]);
+    try {
+        if ($db['host'] === '' || $db['user'] === '' || $db['port'] < 1 || $db['port'] > 65535) {
+            throw new InvalidArgumentException('กรุณากรอกโฮสต์ พอร์ต และชื่อผู้ใช้ให้ถูกต้อง');
+        }
+        Database::safeName($db['name']);
+        $root = Database::connect($db, false);
+        [$verOk, $verMsg] = Requirements::checkServer($root);
+        if (!$verOk) {
+            throw new RuntimeException('เวอร์ชันฐานข้อมูลไม่รองรับ: ' . $verMsg);
+        }
+        if (!empty($_POST['create_db'])) {
+            $root->exec('CREATE DATABASE IF NOT EXISTS `' . $db['name'] . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        }
+        $test = Database::connect($db);
+        $test->exec('CREATE TABLE IF NOT EXISTS `_install_probe` (id INT) ENGINE=InnoDB');
+        $test->exec('DROP TABLE `_install_probe`');
+        if (!save_config($db, $config)) {
+            throw new RuntimeException('เชื่อมต่อได้ แต่บันทึก config/config.php ไม่สำเร็จ — ตรวจสิทธิ์เขียนของโฟลเดอร์ config/');
+        }
+        unset($_SESSION['_db_form']);
+        flash('ok', 'เชื่อมต่อ ' . $verMsg . ' ฐานข้อมูล `' . $db['name'] . '` สำเร็จ และบันทึก config/config.php แล้ว');
+        go(3);
+    } catch (Throwable $ex) {
+        $msg = $ex->getMessage();
+        if ($ex instanceof PDOException) {
+            $msg = match ((int) ($ex->errorInfo[1] ?? 0)) {
+                1045    => 'ชื่อผู้ใช้หรือรหัสผ่านฐานข้อมูลไม่ถูกต้อง',
+                1049    => 'ไม่พบฐานข้อมูล `' . $db['name'] . '` — เลือก "สร้างฐานข้อมูลให้อัตโนมัติ" หรือสร้างเองก่อน',
+                1044, 1142 => 'ผู้ใช้ฐานข้อมูลไม่มีสิทธิ์เพียงพอ (ต้องการสิทธิ์ CREATE, ALTER, DROP, INDEX, REFERENCES)',
+                2002    => 'เชื่อมต่อเซิร์ฟเวอร์ฐานข้อมูลไม่ได้ — ตรวจโฮสต์/พอร์ต และว่า MariaDB ทำงานอยู่',
+                default => 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ' . $msg,
+            };
+        }
+        flash('err', $msg);
+        go(2);
+    }
+}
+
+if ($action === 'migrate' && $dbOk) {
+    $res = (new Migrator($pdo, BASE_PATH . '/migrations', 'installer'))->migrate();
+    if ($res['ok']) {
+        flash('ok', $res['ran'] ? 'ติดตั้ง/อัปเกรดโครงสร้างฐานข้อมูลสำเร็จ ' . count($res['ran']) . ' รายการ' : 'โครงสร้างฐานข้อมูลเป็นปัจจุบันอยู่แล้ว');
+        go($hasAdmin ? 5 : 4);
+    }
+    flash('err', 'รัน migration ไม่สำเร็จ — ' . $res['error'] . ($res['ran'] ? ' (สำเร็จไปก่อนหน้า ' . count($res['ran']) . ' รายการ)' : ''));
+    go(3);
+}
+
+if ($action === 'reinstall' && $dbOk) {
+    if (input('confirm') !== ($config['db']['name'] ?? "\0")) {
+        flash('err', 'พิมพ์ชื่อฐานข้อมูลไม่ตรง — ยกเลิกการล้างข้อมูล');
+        go(3);
+    }
+    $mig = new Migrator($pdo, BASE_PATH . '/migrations', 'installer');
+    $guard = 0;
+    while ($mig->applied() && $guard++ < 100) {
+        $res = $mig->rollback();
+        if (!$res['ok']) {
+            flash('err', 'ล้างข้อมูลไม่สำเร็จ — ' . $res['error']);
+            go(3);
+        }
+    }
+    $pdo->exec('DROP TABLE IF EXISTS `' . Migrator::LOG_TABLE . '`, `' . Migrator::TABLE . '`');
+    @unlink($lockFile);
+    $res = (new Migrator($pdo, BASE_PATH . '/migrations', 'installer'))->migrate();
+    flash($res['ok'] ? 'ok' : 'err', $res['ok']
+        ? 'ล้างข้อมูลเดิมและติดตั้งโครงสร้างใหม่ทั้งหมดแล้ว (' . count($res['ran']) . ' migrations) — ตั้งบัญชีผู้ดูแลใหม่ในขั้นถัดไป'
+        : 'ติดตั้งโครงสร้างใหม่ไม่สำเร็จ — ' . $res['error']);
+    go($res['ok'] ? 4 : 3);
+}
+
+if ($action === 'save_admin' && $schemaOk) {
+    $username = input('username');
+    $display  = input('display_name');
+    $pass     = (string) ($_POST['password'] ?? '');
+    $pass2    = (string) ($_POST['password_confirm'] ?? '');
+    $_SESSION['_admin_form'] = ['username' => $username, 'display_name' => $display];
+    $err = match (true) {
+        !preg_match('/^[A-Za-z0-9_.\-]{3,60}$/', $username) => 'ชื่อผู้ใช้ต้องยาว 3–60 ตัว ใช้ได้เฉพาะ a-z, 0-9, _ . -',
+        mb_strlen($pass) < 8                                => 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร',
+        !preg_match('/[A-Za-z]/', $pass) || !preg_match('/\d/', $pass) => 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข',
+        strcasecmp($pass, $username) === 0                  => 'รหัสผ่านต้องไม่เหมือนชื่อผู้ใช้',
+        $pass !== $pass2                                    => 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน',
+        default                                             => null,
+    };
+    if ($err !== null) {
+        flash('err', $err);
+        go(4);
+    }
+    $hash = password_hash($pass, PASSWORD_DEFAULT);
+    $st   = $pdo->prepare('SELECT id FROM users WHERE username = ?');
+    $st->execute([$username]);
+    $id = (int) $st->fetchColumn();
+    if ($id) {
+        $pdo->prepare("UPDATE users SET password_hash = ?, role = 'admin', is_active = 1, display_name = IF(? = '', display_name, ?) WHERE id = ?")
+            ->execute([$hash, $display, $display, $id]);
+        flash('ok', "ตั้งรหัสผ่านใหม่ให้ผู้ดูแล '{$username}' แล้ว");
+    } else {
+        $pdo->prepare("INSERT INTO users (username, password_hash, display_name, role, is_active) VALUES (?, ?, ?, 'admin', 1)")
+            ->execute([$username, $hash, $display ?: $username]);
+        $id = (int) $pdo->lastInsertId();
+        flash('ok', "สร้างบัญชีผู้ดูแล '{$username}' สำเร็จ");
+    }
+    if (!empty($_POST['sample_news'])) {
+        $n = seed_sample_news($pdo, $id);
+        if ($n) {
+            flash('ok', "ใส่ข่าวตัวอย่าง {$n} รายการ (ลบได้จากระบบจัดการ)");
+        }
+    }
+    $pdo->prepare('DELETE FROM login_attempts')->execute();
+    unset($_SESSION['_admin_form']);
+    // เข้าสู่ระบบให้อัตโนมัติ เพื่อใช้ตัวติดตั้ง/ระบบจัดการต่อได้ทันที
+    session_regenerate_id(true);
+    $_SESSION['uid'] = $id;
+    go(5);
+}
+
+if ($action === 'finish' && $schemaOk && $hasAdmin) {
+    $info = [
+        'installed_at' => $installedInfo['installed_at'] ?? date('Y-m-d H:i:s'),
+        'updated_at'   => date('Y-m-d H:i:s'),
+        'version'      => APP_VERSION,
+        'php'          => PHP_VERSION,
+        'database'     => $server[1] ?? '',
+    ];
+    if (!write_file_atomic($lockFile, json_encode($info, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE))) {
+        flash('err', 'เขียนไฟล์ storage/installed.lock ไม่สำเร็จ — ตรวจสิทธิ์เขียนของโฟลเดอร์ storage/');
+        go(5);
+    }
+    flash('ok', 'ติดตั้งเสร็จสมบูรณ์ ยินดีต้อนรับสู่ระบบจัดการเว็บไซต์');
+    redirect(url('admin/index.php'));
+}
+
+/* ------------------------------ ค่าที่ใช้แสดงผล ------------------------------ */
+$flashes   = take_flashes();
+$dbForm    = ($_SESSION['_db_form'] ?? null) ?: ($config['db'] ?? []) + ['host' => '127.0.0.1', 'port' => 3306, 'name' => 'rvc_web', 'user' => 'root'];
+$adminForm = $_SESSION['_admin_form'] ?? ['username' => 'admin', 'display_name' => 'ผู้ดูแลระบบ'];
+$steps     = [1 => 'ตรวจระบบ', 2 => 'ฐานข้อมูล', 3 => 'โครงสร้างข้อมูล', 4 => 'ผู้ดูแลระบบ', 5 => 'เสร็จสิ้น'];
+$stepDone  = [1 => $reqOk, 2 => $dbOk, 3 => $schemaOk, 4 => $hasAdmin, 5 => $installedInfo !== null];
+$stateLbl  = ['applied' => ['ติดตั้งแล้ว', 'ok'], 'pending' => ['รอติดตั้ง', 'wait'], 'modified' => ['ไฟล์ถูกแก้ไข', 'warn'], 'missing' => ['ไม่พบไฟล์', 'bad']];
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>ตัวติดตั้ง — เว็บแอปพลิเคชัน</title>
+<title>ติดตั้งเว็บไซต์ · ขั้นที่ <?= $step ?></title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
 <style>
-  :root { --blue:#1f5aa6; --blue2:#0b2a55; --ok:#1c7c3f; --err:#b3261e; --line:#8796ad; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:'Leelawadee UI', Tahoma, sans-serif; background:#eef1f5; color:#1c2430; }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
-  header.top { background: linear-gradient(120deg, #0b2a55, #1f5aa6); color:#fff; padding: 26px 28px; border-radius: 8px; margin-bottom: 22px; }
-  header.top h1 { margin:0; font-size: 24px; font-weight: 600; }
-  header.top p { margin:6px 0 0; opacity:.85; font-size:14px; }
-  .step { background:#fff; border:1px solid #d7dee8; border-radius:8px; margin-bottom:16px; overflow:hidden; }
-  .step > h2 { display:flex; gap:12px; align-items:center; margin:0; padding:14px 18px; font-size:17px; font-weight:600; border-bottom:1px solid #e5eaf2; background:#f7f9fc; }
-  .step > h2 .num { flex:0 0 30px; width:30px; height:30px; border-radius:50%; background:var(--blue); color:#fff; display:grid; place-items:center; font-size:15px; }
-  .step > h2 .done { margin-left:auto; color:var(--ok); font-size:14px; font-weight:400; }
-  .step .body { padding: 16px 18px 18px; }
-  table.chk { border-collapse: collapse; width: 100%; font-size: 14px; }
-  table.chk th, table.chk td { border:1px solid #e0e6ee; padding: 7px 10px; text-align:left; }
-  table.chk th { background:#f2f5f9; font-weight:600; }
-  .ok { color: var(--ok); font-weight: 600; }
-  .bad { color: var(--err); font-weight: 600; }
-  .rec { color:#8a6d1a; font-weight: 600; }
-  input, select, textarea { font: inherit; font-size: 15px; }
-  input[type=text], input[type=password], input[type=number] { width:100%; min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:3px; }
-  label { display:block; font-size:13.5px; font-weight:600; margin: 12px 0 4px; color:#38445a; }
-  .row { display:flex; gap:14px; flex-wrap:wrap; }
-  .row > div { flex:1 1 160px; }
-  button { font:inherit; font-size:15px; font-weight:600; color:#fff; background:var(--blue); border:0; border-radius:4px; padding:10px 22px; cursor:pointer; margin-top:14px; }
-  button:hover { background:#174a8d; }
-  button.warn { background:#7a5b00; }
-  button.warn:hover { background:#5f4700; }
-  .msg { margin-top: 14px; padding: 10px 14px; border-radius: 4px; font-size: 14.5px; white-space: pre-line; }
-  .msg.ok { background:#e7f4ec; border:1px solid #b7dfc4; color:#14532d; }
-  .msg.err { background:#fdecea; border:1px solid #f3c1bc; color:#7c1d18; }
-  .note { font-size: 13px; color:#5b6b84; margin: 8px 0 0; }
-  .banner { background:#e7f4ec; border:1px solid #b7dfc4; color:#14532d; padding: 16px 18px; border-radius: 8px; margin-bottom: 18px; font-size: 15px; }
-  .banner a { color: inherit; font-weight: 700; }
-  .migrate-table { width:100%; border-collapse:collapse; font-size:14px; margin-top:10px; }
-  .migrate-table th, .migrate-table td { border:1px solid #e0e6ee; padding:7px 10px; text-align:left; }
-  .migrate-table th { background:#f2f5f9; }
-  .badge { font-size:12px; padding:2px 8px; border-radius:10px; }
-  .badge.applied { background:#e7f4ec; color:#14532d; }
-  .badge.pending { background:#fdf3d8; color:#7a5b00; }
-  a { color: var(--blue); }
+:root{--navy:#0b2a55;--navy2:#071d3d;--ink:#13213a;--mute:#4a5a74;--line:#d5ddea;--bg:#f4f7fb;--blue:#1f5aa6;--ok:#1d7a3e;--okbg:#e2f3e8;--bad:#b42318;--badbg:#fbe5e3;--warn:#9a5800;--warnbg:#fcefd9}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.6 'IBM Plex Sans Thai',Tahoma,sans-serif;color:var(--ink);background:var(--bg)}
+h1,h2,.hd{font-family:Anuphan,'IBM Plex Sans Thai',sans-serif;font-weight:600}
+a{color:var(--blue)}
+.top{background:var(--navy);color:#c3d0e4}
+.top .in{max-width:960px;margin:0 auto;padding:18px 16px;display:flex;align-items:center;gap:14px}
+.seal{width:44px;height:44px;border-radius:50%;border:2px solid #f2c14e;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.top h1{margin:0;color:#fff;font-size:20px;line-height:1.3}
+.wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+.steps{display:flex;gap:4px;margin:0 0 20px;padding:0;list-style:none;overflow-x:auto}
+.steps li{flex:1 1 0;min-width:120px}
+.steps a,.steps span{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:3px solid var(--line);color:var(--mute);text-decoration:none;font-weight:600;font-size:14px;white-space:nowrap}
+.steps .n{width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;background:#e9eef6;font-size:13px;flex:none}
+.steps .done .n{background:var(--ok);color:#fff}
+.steps .cur a,.steps .cur span{border-color:var(--navy);color:var(--ink)}
+.steps .cur .n{background:var(--navy);color:#fff}
+.steps span{opacity:.55}
+.card{background:#fff;border:1px solid var(--line);border-radius:4px;padding:22px 24px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:20px}
+.sub{margin:0 0 16px;color:var(--mute);font-size:14px}
+.msg{padding:12px 16px;border-radius:3px;margin-bottom:12px;font-weight:500;white-space:pre-line}
+.msg.ok{background:var(--okbg);color:var(--ok)}.msg.err{background:var(--badbg);color:var(--bad)}.msg.info{background:#e8f0fb;color:#173f75}.msg.warn{background:var(--warnbg);color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{background:var(--bg);color:var(--mute);font-weight:600;font-size:13px}
+.grp td{background:#fafbfd;font-weight:700;color:var(--navy);font-size:13px;letter-spacing:.02em}
+.pill{display:inline-block;padding:1px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.warn,.pill.wait{background:var(--warnbg);color:var(--warn)}.pill.mute{background:#e9eef6;color:var(--mute)}
+.mute{color:var(--mute)}.small{font-size:13px}
+label.f{display:block;font-weight:600;margin:14px 0 6px}
+input[type=text],input[type=password],input[type=number]{width:100%;min-height:44px;padding:8px 12px;border:1px solid #8796ad;border-radius:3px;font:inherit;background:#fff}
+input:focus{outline:3px solid var(--blue);outline-offset:1px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px}
+.chk{display:flex;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer}
+.chk input{width:18px;height:18px;margin-top:3px;accent-color:var(--navy)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:20px}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:3px;border:0;background:var(--navy);color:#fff;font:600 15px 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-decoration:none}
+.btn:hover{background:#174a8b;color:#fff}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid #8796ad}
+.btn.danger{background:var(--bad)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+details.danger{border:1px solid #f1c6c1;border-radius:4px;padding:14px 18px;background:#fff8f7;margin-top:16px}
+details.danger summary{cursor:pointer;font-weight:700;color:var(--bad)}
+code{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:0 5px;font-size:13px}
+.tw{overflow-x:auto}
+@media (max-width:600px){.card{padding:18px 16px}.steps li{min-width:auto}.steps .t{display:none}}
 </style>
 </head>
 <body>
+<header class="top"><div class="in">
+  <div class="seal hd">ตรา</div>
+  <div><h1>ติดตั้งเว็บไซต์วิทยาลัย</h1>
+  <div class="small">เวอร์ชัน <?= APP_VERSION ?> · PHP <?= e(PHP_VERSION) ?><?= $installedInfo !== null ? ' · ติดตั้งแล้ว — โหมดดูแลระบบ' : '' ?></div></div>
+</div></header>
+
 <div class="wrap">
-
-  <header class="top">
-    <h1>ตัวติดตั้งเว็บแอปพลิเคชัน</h1>
-    <p>PHP <?= e(PHP_VERSION) ?> · รองรับการใช้งานซ้ำ — รันหน้านี้ได้ทุกครั้งที่ต้องการตรวจสอบหรือปรับปรุงระบบ</p>
-  </header>
-
-  <?php if ($installed && $adminMsg === null && isset($config) && $migMsg === null && $dbMsg === null): ?>
-  <div class="banner">
-    ✅ ระบบติดตั้งแล้วและเชื่อมต่อฐานข้อมูลได้ (ติดตั้งล่าสุด: <?= e($config['installed_at'] ?? '-') ?>)<br>
-    สามารถกดแต่ละขั้นตอนเพื่อตรวจสอบ/ดำเนินการซ้ำได้ตามต้องการ — หน้าเว็บ: <a href="<?= e(url('index.php')) ?>">เปิดหน้าหลัก</a> ·
-    ผู้ดูแล: <a href="<?= e(url('admin/index.php')) ?>">เข้าสู่ระบบ</a>
-  </div>
-  <?php endif; ?>
-
-  <!-- 1) ตรวจระบบ -->
-  <div class="step">
-    <h2><span class="num">1</span> ตรวจระบบและสิทธิ์ไฟล์ <?php if ($allChecksOk): ?><span class="done">✔ ผ่านทั้งหมด</span><?php endif; ?></h2>
-    <div class="body">
-      <p class="note">ตรวจสอบเวอร์ชัน PHP ส่วนขยาย (extension) ที่จำเป็น และสิทธิ์อ่าน/เขียนโฟลเดอร์ที่ต้องใช้ — กดปุ่มเพื่อตรวจทันที</p>
-      <?php if ($checks !== null): ?>
-      <table class="chk">
-        <tr><th>รายการ</th><th>สถานะ</th><th>รายละเอียด</th></tr>
-        <?php foreach ($checks as $c): $cls = $c['ok'] ? 'ok' : ($c['level'] === 'req' ? 'bad' : 'rec'); ?>
-        <tr>
-          <td><?= e($c['name']) ?></td>
-          <td class="<?= $cls ?>"><?= $c['ok'] ? 'ผ่าน' : ($c['level'] === 'req' ? 'ไม่ผ่าน' : 'ไม่ผ่าน (ไม่บังคับ)') ?></td>
-          <td><?= e($c['detail']) ?></td>
-        </tr>
-        <?php endforeach; ?>
-      </table>
-      <?php else: ?>
-        <p class="note">ยังไม่ได้ตรวจ — กดปุ่มด้านล่าง</p>
-      <?php endif; ?>
-      <form method="post">
-        <input type="hidden" name="action" value="check">
-        <button type="submit">ตรวจระบบทันที</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- 2) ฐานข้อมูล -->
-  <div class="step">
-    <h2><span class="num">2</span> ตั้งค่าการเชื่อมต่อฐานข้อมูล <?php if ($dbMsg !== null && $dbMsg['ok']): ?><span class="done">✔ พร้อมใช้งาน</span><?php endif; ?></h2>
-    <div class="body">
-      <form method="post" class="dbform">
-        <input type="hidden" name="action" value="db">
-        <div class="row">
-          <div><label>Host</label><input type="text" name="db_host" value="<?= e((string) $dbCfg['host']) ?>"></div>
-          <div><label>Port</label><input type="number" name="db_port" value="<?= e((string) $dbCfg['port']) ?>"></div>
-        </div>
-        <div class="row">
-          <div><label>ชื่อฐานข้อมูล</label><input type="text" name="db_name" value="<?= e((string) $dbCfg['name']) ?>"></div>
-          <div><label>ผู้ใช้</label><input type="text" name="db_user" value="<?= e((string) $dbCfg['user']) ?>"></div>
-        </div>
-        <label>รหัสผ่าน (เว้นว่าง = ไม่ใช้รหัสผ่าน)</label>
-        <input type="password" name="db_pass" value="" autocomplete="new-password">
-        <label style="font-weight:400;margin-top:14px;display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" name="create_db" value="1" style="width:auto;min-height:auto;"
-                 <?= $dbCfg['name'] ? 'checked' : '' ?>>
-          สร้างฐานข้อมูลให้อัตโนมัติถ้ายังไม่มี (ต้องเป็นผู้ใช้ที่มีสิทธิ์ CREATE)
-        </label>
-        <p class="note">ระบบรองรับ MariaDB 10.x ขึ้นไป — จะตรวจสอบเวอร์ชันตอนทดสอบเชื่อมต่อ และบันทึกค่าใน config/config.php (ไฟล์นี้ไม่ถูกเก็บใน git)</p>
-        <button type="submit">ทดสอบเชื่อมต่อและบันทึก</button>
-      </form>
-      <?php if ($dbMsg !== null): ?>
-        <div class="msg <?= $dbMsg['ok'] ? 'ok' : 'err' ?>"><?= e($dbMsg['text']) ?></div>
-      <?php endif; ?>
-    </div>
-  </div>
-
-  <!-- 3) Migrations -->
-  <div class="step">
-    <h2><span class="num">3</span> โครงสร้างฐานข้อมูล (Migrations) <?php if ($migMsg !== null && $migMsg['ok']): ?><span class="done">✔ เป็นปัจจุบัน</span><?php endif; ?></h2>
-    <div class="body">
-      <p class="note">สร้าง/ปรับปรุงตารางข้อมูลตามไฟล์ในโฟลเดอร์ <code>/migrations</code> — รันเฉพาะรายการที่ยังไม่ได้ทำเท่านั้น ปลอดภัยเมื่อรันซ้ำ</p>
-      <?php
-      $migList = null;
-      try {
-          $safe = preg_replace('/[^A-Za-z0-9_$]/', '', (string) ($dbCfg['name'] ?? ''));
-          $pdo2 = new PDO(sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-                  (string) $dbCfg['host'], (int) $dbCfg['port'], $safe),
-              (string) $dbCfg['user'], (string) $dbCfg['pass'],
-              [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-          $migList = Migrate::status($pdo2);
-      } catch (Throwable) {
-          $migList = null;
-      }
-      if ($migList !== null): ?>
-        <table class="migrate-table">
-          <tr><th>เวอร์ชัน</th><th>คำอธิบาย</th><th>สถานะ</th></tr>
-          <?php foreach ($migList as $r): ?>
-          <tr>
-            <td><?= e($r['version']) ?></td>
-            <td><?= e($r['name']) ?></td>
-            <td>
-              <?php if ($r['applied'] !== null): ?>
-                <span class="badge applied">ติดตั้งแล้ว · <?= e(fmt_dt($r['applied'])) ?></span>
-              <?php else: ?>
-                <span class="badge pending">รอติดตั้ง</span>
-              <?php endif; ?>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </table>
-        <form method="post">
-          <input type="hidden" name="action" value="migrate">
-          <button type="submit">ติดตั้ง/ปรับปรุงโครงสร้างฐานข้อมูล</button>
-        </form>
-      <?php else: ?>
-        <p class="note">ยังแสดงรายการไม่ได้ — กรุณาตั้งค่าการเชื่อมต่อในขั้นตอนที่ 2 ก่อน</p>
-      <?php endif; ?>
-      <?php if ($migMsg !== null): ?>
-        <div class="msg <?= $migMsg['ok'] ? 'ok' : 'err' ?>"><?= e($migMsg['text']) ?></div>
-      <?php endif; ?>
-    </div>
-  </div>
-
-  <!-- 4) ผู้ดูแลระบบ -->
-  <div class="step">
-    <h2><span class="num">4</span> บัญชีผู้ดูแลระบบ (admin) <?php if ($adminMsg !== null && $adminMsg['ok']): ?><span class="done">✔ สำเร็จ</span><?php endif; ?></h2>
-    <div class="body">
-      <p class="note">ตั้งชื่อผู้ใช้และรหัสผ่านสำหรับเข้าสู่ระบบผู้ดูแล — หากชื่อผู้ใช้เดิมอยู่แล้วระบบจะอัปเดตรหัสผ่านให้ (ใช้ซ้ำเพื่อรีเซ็ตรหัสผ่านได้)</p>
-      <form method="post">
-        <input type="hidden" name="action" value="admin">
-        <label>ชื่อผู้ใช้</label>
-        <input type="text" name="admin_user" value="admin" pattern="[A-Za-z0-9_.\-]{3,60}">
-        <label>รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)</label>
-        <input type="password" name="admin_pass" autocomplete="new-password">
-        <label>ยืนยันรหัสผ่าน</label>
-        <input type="password" name="admin_pass2" autocomplete="new-password">
-        <button type="submit">บันทึกบัญชีผู้ดูแล</button>
-      </form>
-      <?php if ($adminMsg !== null): ?>
-        <div class="msg <?= $adminMsg['ok'] ? 'ok' : 'err' ?>"><?= e($adminMsg['text']) ?></div>
-        <?php if ($adminMsg['ok']): ?>
-          <div class="banner" style="margin-top:14px">
-            🎉 ติดตั้งเสร็จสมบูรณ์ — เปิดหน้าเว็บ: <a href="<?= e(url('index.php')) ?>">หน้าหลัก</a> ·
-            เข้าสู่ระบบผู้ดูแล: <a href="<?= e(url('admin/index.php')) ?>">ระบบจัดการ</a><br>
-            <small>แนะนำให้ลบ/จำกัดการเข้าถึง install.php ในสภาพแวดล้อมออนไลน์จริง หรือรันซ้ำเมื่อต้องการตรวจระบบ/รีเซ็ตรหัสผ่าน</small>
-          </div>
+  <ol class="steps" aria-label="ขั้นตอนการติดตั้ง">
+    <?php foreach ($steps as $n => $label): $cls = ($n === $step ? 'cur ' : '') . ($stepDone[$n] ? 'done' : ''); ?>
+      <li class="<?= $cls ?>">
+        <?php if ($n <= $maxStep): ?>
+          <a href="<?= e(url('install.php', ['step' => $n])) ?>" <?= $n === $step ? 'aria-current="step"' : '' ?>><span class="n"><?= $stepDone[$n] ? '✓' : $n ?></span><span class="t"><?= e($label) ?></span></a>
+        <?php else: ?>
+          <span><span class="n"><?= $n ?></span><span class="t"><?= e($label) ?></span></span>
         <?php endif; ?>
+      </li>
+    <?php endforeach; ?>
+  </ol>
+
+  <?php foreach ($flashes as $f): ?>
+    <div class="msg <?= $f['type'] === 'ok' ? 'ok' : 'err' ?>" role="status"><?= e($f['msg']) ?></div>
+  <?php endforeach; ?>
+
+<?php if ($step === 1): ?>
+  <section class="card">
+    <h2>1 · ตรวจความพร้อมของเซิร์ฟเวอร์</h2>
+    <p class="sub">ตรวจเวอร์ชัน PHP แพ็กเกจ (ส่วนขยาย PHP) ที่จำเป็น และสิทธิ์อ่าน/เขียนโฟลเดอร์ — รายการที่ "จำเป็น" ต้องผ่านทั้งหมดจึงติดตั้งต่อได้</p>
+    <div class="tw"><table>
+      <thead><tr><th>รายการ</th><th>รายละเอียด</th><th style="width:110px">ผล</th></tr></thead>
+      <tbody>
+      <?php $g = null; foreach ($checks as $c): if ($c['group'] !== $g): $g = $c['group']; ?>
+        <tr class="grp"><td colspan="3"><?= e($g) ?></td></tr>
+      <?php endif; ?>
+        <tr>
+          <td><b><?= e($c['name']) ?></b><?= $c['required'] ? '' : ' <span class="mute small">(ไม่บังคับ)</span>' ?></td>
+          <td class="mute"><?= e($c['detail']) ?></td>
+          <td><?php if ($c['ok']): ?><span class="pill ok">ผ่าน</span><?php elseif ($c['required']): ?><span class="pill bad">ไม่ผ่าน</span><?php else: ?><span class="pill warn">แนะนำ</span><?php endif; ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+    <div class="actions">
+      <a class="btn ghost" href="<?= e(url('install.php', ['step' => 1])) ?>">↻ ตรวจอีกครั้ง</a>
+      <?php if ($reqOk): ?>
+        <a class="btn" href="<?= e(url('install.php', ['step' => 2])) ?>">ถัดไป: ฐานข้อมูล →</a>
+      <?php else: ?>
+        <span class="msg err" style="margin:0">แก้ไขรายการที่ไม่ผ่านก่อน แล้วกด "ตรวจอีกครั้ง"</span>
       <?php endif; ?>
     </div>
-  </div>
+  </section>
 
+<?php elseif ($step === 2): ?>
+  <section class="card">
+    <h2>2 · เชื่อมต่อฐานข้อมูล MariaDB</h2>
+    <p class="sub">ต้องการ MariaDB <?= e(Requirements::MARIADB_MIN) ?> ขึ้นไป · ระบบจะทดสอบการเชื่อมต่อและสิทธิ์ แล้วบันทึกลง <code>config/config.php</code></p>
+    <?php if ($config && $dbOk): ?>
+      <div class="msg ok">เชื่อมต่ออยู่แล้ว: <?= e($server[1] ?? '') ?> · ฐานข้อมูล <code><?= e($config['db']['name']) ?></code> — แก้ค่าด้านล่างถ้าต้องการย้ายฐานข้อมูล</div>
+    <?php elseif ($config && $dbError): ?>
+      <div class="msg err">config.php มีอยู่แล้ว แต่เชื่อมต่อไม่ได้: <?= e($dbError) ?></div>
+    <?php endif; ?>
+    <form method="post" autocomplete="off">
+      <?= Csrf::field() ?>
+      <input type="hidden" name="action" value="save_db">
+      <div class="row">
+        <div><label class="f" for="h">โฮสต์</label><input type="text" id="h" name="db_host" value="<?= e($dbForm['host'] ?? '') ?>" required></div>
+        <div><label class="f" for="p">พอร์ต</label><input type="number" id="p" name="db_port" value="<?= e($dbForm['port'] ?? 3306) ?>" min="1" max="65535" required></div>
+      </div>
+      <label class="f" for="n">ชื่อฐานข้อมูล</label>
+      <input type="text" id="n" name="db_name" value="<?= e($dbForm['name'] ?? '') ?>" pattern="[A-Za-z0-9_$]{1,64}" required>
+      <div class="row">
+        <div><label class="f" for="u">ชื่อผู้ใช้ฐานข้อมูล</label><input type="text" id="u" name="db_user" value="<?= e($dbForm['user'] ?? '') ?>" required></div>
+        <div><label class="f" for="pw">รหัสผ่านฐานข้อมูล</label><input type="password" id="pw" name="db_pass" autocomplete="new-password"></div>
+      </div>
+      <?php if ($config): ?>
+        <label class="chk"><input type="checkbox" name="keep_pass" value="1" checked><span>ถ้าเว้นรหัสผ่านว่าง ให้ใช้รหัสผ่านเดิมใน config.php</span></label>
+      <?php endif; ?>
+      <label class="chk"><input type="checkbox" name="create_db" value="1" checked><span>สร้างฐานข้อมูลให้อัตโนมัติถ้ายังไม่มี <span class="mute small">(utf8mb4_unicode_ci — ผู้ใช้ต้องมีสิทธิ์ CREATE)</span></span></label>
+      <div class="actions">
+        <a class="btn ghost" href="<?= e(url('install.php', ['step' => 1])) ?>">← ย้อนกลับ</a>
+        <button class="btn" type="submit">ทดสอบและบันทึก →</button>
+      </div>
+    </form>
+  </section>
+
+<?php elseif ($step === 3): ?>
+  <section class="card">
+    <h2>3 · โครงสร้างฐานข้อมูล (Migrations)</h2>
+    <p class="sub">ฐานข้อมูล <code><?= e($config['db']['name'] ?? '') ?></code> · <?= e($server[1] ?? '') ?></p>
+    <?php if ($appliedN > 0 && $pending): ?>
+      <div class="msg info">พบการติดตั้งเดิม (<?= $appliedN ?> migrations) — กด "อัปเกรด" เพื่อรันเฉพาะรายการใหม่ ข้อมูลเดิมจะไม่ถูกลบ</div>
+    <?php elseif ($appliedN > 0 && !$pending): ?>
+      <div class="msg ok">โครงสร้างฐานข้อมูลเป็นปัจจุบันแล้ว</div>
+    <?php elseif ($conflicts): ?>
+      <div class="msg err">ฐานข้อมูลนี้มีตาราง <?= e(implode(', ', $conflicts)) ?> อยู่แล้ว แต่ไม่ได้สร้างโดยตัวติดตั้งนี้ (อาจเป็นระบบเก่า)
+โครงสร้างอาจไม่ตรงกันและทำให้ระบบทำงานผิดพลาด — แนะนำให้ย้อนกลับไปเลือกฐานข้อมูลใหม่ หรือสำรองแล้วลบตารางเหล่านั้นก่อน</div>
+    <?php else: ?>
+      <div class="msg info">ฐานข้อมูลยังว่าง — กด "ติดตั้งโครงสร้าง" เพื่อสร้างตารางทั้งหมด</div>
+    <?php endif; ?>
+    <div class="tw"><table>
+      <thead><tr><th>Migration</th><th>คำอธิบาย</th><th>สถานะ</th><th>รันเมื่อ</th></tr></thead>
+      <tbody>
+      <?php foreach ($status as $r): [$lbl, $cls] = $stateLbl[$r['state']]; ?>
+        <tr><td><code><?= e($r['name']) ?></code></td><td><?= e($r['description']) ?></td>
+          <td><span class="pill <?= $cls ?>"><?= e($lbl) ?></span></td>
+          <td class="mute small"><?= $r['applied_at'] ? e(thai_date($r['applied_at'], 'time')) . ' · batch ' . (int) $r['batch'] : '—' ?></td></tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+    <form method="post" class="actions">
+      <?= Csrf::field() ?>
+      <input type="hidden" name="action" value="migrate">
+      <a class="btn ghost" href="<?= e(url('install.php', ['step' => 2])) ?>">← ย้อนกลับ</a>
+      <?php if ($pending): ?>
+        <button class="btn" type="submit"><?= $appliedN > 0 ? 'อัปเกรด ' . count($pending) . ' รายการ' : 'ติดตั้งโครงสร้าง ' . count($pending) . ' รายการ' ?> →</button>
+      <?php else: ?>
+        <a class="btn" href="<?= e(url('install.php', ['step' => $hasAdmin ? 5 : 4])) ?>">ถัดไป →</a>
+      <?php endif; ?>
+    </form>
+
+    <?php if ($appliedN > 0): ?>
+    <details class="danger">
+      <summary>ติดตั้งใหม่ทั้งหมด (ล้างข้อมูลเดิม)</summary>
+      <p class="small">ระบบจะเรียก <code>down()</code> ของทุก migration เพื่อลบตารางของเว็บไซต์ (ข่าว หน่วยงาน ผู้ใช้ ป๊อปอัพ ฯลฯ) แล้วติดตั้งใหม่
+        <b>ข้อมูลทั้งหมดจะหายและกู้คืนไม่ได้</b> · ไฟล์รูปใน <code>uploads/</code> ไม่ถูกลบ · ตารางอื่นในฐานข้อมูลเดียวกันที่ไม่ใช่ของระบบจะไม่ถูกแตะต้อง</p>
+      <form method="post" onsubmit="return confirm('ยืนยันล้างข้อมูลทั้งหมดและติดตั้งใหม่?')">
+        <?= Csrf::field() ?>
+        <input type="hidden" name="action" value="reinstall">
+        <label class="f" for="cf">พิมพ์ชื่อฐานข้อมูล <code><?= e($config['db']['name'] ?? '') ?></code> เพื่อยืนยัน</label>
+        <input type="text" id="cf" name="confirm" autocomplete="off" required>
+        <div class="actions"><button class="btn danger" type="submit">ล้างข้อมูลและติดตั้งใหม่</button></div>
+      </form>
+    </details>
+    <?php endif; ?>
+  </section>
+
+<?php elseif ($step === 4): ?>
+  <section class="card">
+    <h2>4 · ตั้งค่าบัญชีผู้ดูแลระบบ (admin)</h2>
+    <p class="sub">บัญชีนี้ใช้เข้าระบบจัดการเว็บไซต์ · รหัสผ่านเก็บแบบเข้ารหัส (bcrypt) ไม่สามารถอ่านย้อนกลับได้</p>
+    <?php if ($admins): ?>
+      <div class="msg info">มีผู้ดูแลอยู่แล้ว: <?= e(implode(', ', array_column($admins, 'username'))) ?>
+        — กรอกชื่อผู้ใช้เดิมเพื่อตั้งรหัสผ่านใหม่ หรือกรอกชื่อใหม่เพื่อเพิ่มผู้ดูแลอีกคน</div>
+    <?php endif; ?>
+    <form method="post" autocomplete="off">
+      <?= Csrf::field() ?>
+      <input type="hidden" name="action" value="save_admin">
+      <div class="row">
+        <div><label class="f" for="un">ชื่อผู้ใช้</label>
+          <input type="text" id="un" name="username" value="<?= e($adminForm['username']) ?>" pattern="[A-Za-z0-9_.\-]{3,60}" required>
+          <div class="mute small">3–60 ตัว: a-z, 0-9, _ . -</div></div>
+        <div><label class="f" for="dn">ชื่อที่แสดง</label>
+          <input type="text" id="dn" name="display_name" value="<?= e($adminForm['display_name']) ?>" maxlength="120"></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="pa">รหัสผ่าน</label>
+          <input type="password" id="pa" name="password" minlength="8" autocomplete="new-password" required>
+          <div class="mute small">อย่างน้อย 8 ตัว มีทั้งตัวอักษรและตัวเลข</div></div>
+        <div><label class="f" for="pb">ยืนยันรหัสผ่าน</label>
+          <input type="password" id="pb" name="password_confirm" minlength="8" autocomplete="new-password" required></div>
+      </div>
+      <?php if ($newsCount === 0): ?>
+        <label class="chk"><input type="checkbox" name="sample_news" value="1" checked><span>ใส่ข่าวตัวอย่างเพื่อดูหน้าตาเว็บไซต์ <span class="mute small">(มีป้าย [ตัวอย่าง] ลบได้ภายหลัง)</span></span></label>
+      <?php endif; ?>
+      <div class="actions">
+        <a class="btn ghost" href="<?= e(url('install.php', ['step' => 3])) ?>">← ย้อนกลับ</a>
+        <button class="btn" type="submit">บันทึกผู้ดูแลระบบ →</button>
+        <?php if ($hasAdmin): ?><a class="btn ghost" href="<?= e(url('install.php', ['step' => 5])) ?>">ข้าม (ใช้บัญชีเดิม)</a><?php endif; ?>
+      </div>
+    </form>
+  </section>
+
+<?php else: ?>
+  <section class="card">
+    <h2>5 · พร้อมใช้งาน</h2>
+    <p class="sub">ตรวจสรุปแล้วกด "เสร็จสิ้นการติดตั้ง" ระบบจะล็อกตัวติดตั้งไว้ ครั้งต่อไปต้องเข้าสู่ระบบผู้ดูแลก่อนจึงใช้ได้</p>
+    <table>
+      <tr><th style="width:200px">ระบบ</th><td>PHP <?= e(PHP_VERSION) ?> · <?= e($server[1] ?? '') ?></td></tr>
+      <tr><th>ฐานข้อมูล</th><td><code><?= e($config['db']['name'] ?? '') ?></code> @ <?= e(($config['db']['host'] ?? '') . ':' . ($config['db']['port'] ?? '')) ?></td></tr>
+      <tr><th>Migrations</th><td><?= $appliedN ?> รายการ — เป็นปัจจุบัน</td></tr>
+      <tr><th>ผู้ดูแลระบบ</th><td><?= e(implode(', ', array_column($admins, 'username'))) ?></td></tr>
+      <tr><th>สถานะ</th><td><?= $installedInfo !== null ? 'ติดตั้งแล้วเมื่อ ' . e(thai_date($installedInfo['installed_at'] ?? null, 'time')) : 'ยังไม่ล็อกตัวติดตั้ง' ?></td></tr>
+    </table>
+    <form method="post" class="actions">
+      <?= Csrf::field() ?>
+      <input type="hidden" name="action" value="finish">
+      <button class="btn" type="submit"><?= $installedInfo !== null ? 'บันทึกและกลับระบบจัดการ' : 'เสร็จสิ้นการติดตั้ง' ?> →</button>
+      <a class="btn ghost" href="<?= e(url()) ?>" target="_blank" rel="noopener">ดูหน้าเว็บไซต์</a>
+    </form>
+    <p class="mute small" style="margin-top:16px">ความปลอดภัย: บนเซิร์ฟเวอร์จริงควรใช้ HTTPS และจำกัดสิทธิ์ผู้ใช้ฐานข้อมูลเฉพาะฐานข้อมูลนี้ · การอัปเกรดโครงสร้างภายหลังทำได้จากเมนู <b>Migrations</b> ในระบบจัดการ</p>
+  </section>
+<?php endif; ?>
 </div>
 </body>
 </html>

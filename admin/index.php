@@ -1,110 +1,79 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../core/bootstrap.php';
-require_installed();
+require __DIR__ . '/_init.php';
+$me = Auth::require();
 
-/* ---------- เข้าสู่ระบบ / แผงควบคุม ---------- */
-if (Auth::user() === null) {
-    $error = '';
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-        $u = trim((string) ($_POST['username'] ?? ''));
-        $p = (string) ($_POST['password'] ?? '');
-        if ($u === '' || $p === '') {
-            $error = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน';
-        } elseif (Auth::attempt($u, $p)) {
-            redirect(url('admin/index.php'));
-        } else {
-            $error = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
-        }
-    }
-    ?>
-    <!DOCTYPE html>
-    <html lang="th">
-    <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-    <title>เข้าสู่ระบบผู้ดูแล</title>
-    <link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>">
-    </head>
-    <body>
-    <div class="login-wrap">
-      <div class="login-box">
-        <h1>เข้าสู่ระบบผู้ดูแล</h1>
-        <p class="sub"><?= e(Settings::get('site_name', 'เว็บไซต์')) ?></p>
-        <?php if ($error !== ''): ?><div class="flash err"><?= e($error) ?></div><?php endif; ?>
-        <form method="post">
-          <label>ชื่อผู้ใช้</label>
-          <input type="text" name="username" required autofocus>
-          <label>รหัสผ่าน</label>
-          <input type="password" name="password" required>
-          <button type="submit" style="width:100%;margin-top:18px">เข้าสู่ระบบ</button>
-        </form>
-        <p class="muted" style="margin-top:16px"><a href="<?= e(url('index.php')) ?>">← กลับหน้าเว็บ</a> ·
-        ลืมรหัสผ่าน? ใช้ขั้นตอนที่ 4 ของ <a href="<?= e(url('install.php')) ?>">install.php</a></p>
-      </div>
-    </div>
-    </body>
-    </html>
-    <?php
-    exit;
-}
+$scope  = $me['role'] === 'admin' ? '' : ' AND n.author_id = ' . (int) $me['id'];
+$counts = Database::one("SELECT
+    SUM(n.status = 'published' AND n.published_at <= NOW() AND n.published_at >= DATE_FORMAT(NOW(), '%Y-%m-01')) AS month,
+    SUM(n.status = 'published' AND n.published_at > NOW()) AS scheduled,
+    SUM(n.status = 'draft') AS drafts,
+    SUM(n.status = 'pending') AS pending
+    FROM news n WHERE 1 = 1{$scope}") ?? [];
+$recent = Database::all("SELECT n.*, u.name AS unit_name FROM news n LEFT JOIN units u ON u.id = n.unit_id WHERE 1 = 1{$scope} ORDER BY n.updated_at DESC LIMIT 6");
+$popups = Database::all('SELECT * FROM popups WHERE is_draft = 0 AND is_enabled = 1 AND end_at >= NOW() ORDER BY start_at LIMIT 4');
+$pendingMig = Auth::isAdmin() ? (new Migrator(Database::pdo(), BASE_PATH . '/migrations'))->pending() : [];
 
-/* ---------- แผงควบคุม ---------- */
-Auth::require();
-Csrf::require();
-
-$db  = Database::pdo();
-$cnt = static fn (string $t): int => (int) $db->query("SELECT COUNT(*) FROM {$t}")->fetchColumn();
-$newsCount = $cnt('news');
-$unitCount = $cnt('units');
-$popupCount = (int) $db->query('SELECT COUNT(*) FROM popups WHERE enabled = 1 AND starts_at <= NOW() AND ends_at >= NOW()')->fetchColumn();
-
-Migrate::ensureTable($db);
-$applied = (int) $db->query('SELECT COUNT(*) FROM migrations')->fetchColumn();
-$total   = count(Migrate::files());
-$pending = $total - $applied;
-$last    = $db->query('SELECT version, name, applied_at FROM migrations ORDER BY applied_at DESC LIMIT 1')->fetch() ?: null;
-
-$adminTitle = 'แผงควบคุม';
-$navActive  = 'dashboard';
-include __DIR__ . '/_layout.php';
+admin_header('ภาพรวม', 'dash');
 ?>
-<h1>แผงควบคุม</h1>
-<p class="sub">ภาพรวมข้อมูลและสถานะของระบบ</p>
-
-<div class="stat-grid">
-  <div class="stat"><b><?= $newsCount ?></b><span>ข่าวสารทั้งหมด</span></div>
-  <div class="stat"><b><?= $unitCount ?></b><span>หน่วยงาน</span></div>
-  <div class="stat"><b><?= $popupCount ?></b><span>ป๊อปอัพกำลังแสดง</span></div>
-  <div class="stat"><b><?= $applied ?>/<?= $total ?></b><span>Migrations ติดตั้งแล้ว</span></div>
+<div class="head">
+  <div><h1>สวัสดี <?= e($me['display_name'] ?: $me['username']) ?></h1>
+  <p><?= e(thai_date(time(), 'full')) ?></p></div>
+  <div class="acts"><a class="btn big" href="<?= e(url('admin/news.php', ['act' => 'new'])) ?>">+ เขียนข่าวใหม่</a></div>
 </div>
 
-<div class="panel" style="margin-top:18px">
-  <h2>สถานะฐานข้อมูล</h2>
-  <table class="list">
-    <tr><th>เวอร์ชันฐานข้อมูล</th><th>Migration ล่าสุด</th><th>รอติดตั้ง</th></tr>
-    <tr>
-      <td><?= e((string) $db->query('SELECT VERSION()')->fetchColumn()) ?></td>
-      <td><?= $last ? e($last['version'] . ' — ' . $last['name']) . ' <span class="muted">(' . e(fmt_dt($last['applied_at'])) . ')</span>' : '—' ?></td>
-      <td>
-        <?php if ($pending > 0): ?>
-          <span class="badge amber"><?= $pending ?> รายการ — ไปจัดการ</span>
-          <a class="btn sm" style="background:#7a5b00" href="<?= e(url('admin/migrations.php')) ?>">Migrations</a>
-        <?php else: ?>
-          <span class="badge green">เป็นปัจจุบัน</span>
+<?php if ($pendingMig): ?>
+  <div class="msg warn">มีการปรับปรุงโครงสร้างฐานข้อมูลรอติดตั้ง <?= count($pendingMig) ?> รายการ — <a href="<?= e(url('admin/migrations.php')) ?>">ไปที่เมนู Migrations</a></div>
+<?php endif; ?>
+
+<div class="stats">
+  <a class="stat" href="<?= e(url('admin/news.php')) ?>"><div class="l">เผยแพร่เดือนนี้</div><div class="v"><?= (int) ($counts['month'] ?? 0) ?></div></a>
+  <a class="stat" href="<?= e(url('admin/news.php', ['status' => 'scheduled'])) ?>"><div class="l">ตั้งเวลาไว้</div><div class="v" style="color:var(--warn)"><?= (int) ($counts['scheduled'] ?? 0) ?></div></a>
+  <a class="stat" href="<?= e(url('admin/news.php', ['status' => 'draft'])) ?>"><div class="l">ฉบับร่าง</div><div class="v" style="color:var(--mute)"><?= (int) ($counts['drafts'] ?? 0) ?></div></a>
+  <a class="stat" href="<?= e(url('admin/news.php', ['status' => 'pending'])) ?>"><div class="l">รออนุมัติ</div><div class="v" style="color:var(--blue)"><?= (int) ($counts['pending'] ?? 0) ?></div></a>
+</div>
+
+<div class="cols">
+  <div class="wide">
+    <section class="tbl">
+      <div class="ttl">ข่าวที่แก้ไขล่าสุด <a class="small" href="<?= e(url('admin/news.php')) ?>">ดูทั้งหมด ›</a></div>
+      <div class="tw"><table>
+        <tbody>
+        <?php if (!$recent): ?><tr><td class="empty">ยังไม่มีข่าว — <a href="<?= e(url('admin/news.php', ['act' => 'new'])) ?>">เขียนข่าวแรก</a></td></tr><?php endif; ?>
+        <?php foreach ($recent as $n): ?>
+          <tr class="row"><td><div class="ncell"><div class="thumb" style="<?= $n['cover'] ? 'background-image:url(' . e(upload_url($n['cover'])) . ')' : '' ?>"></div>
+            <div><a href="<?= e(url('admin/news.php', ['act' => 'edit', 'id' => $n['id']])) ?>"><b><?= e($n['title']) ?></b></a>
+            <div class="small mute"><?= e(NEWS_CATEGORIES[$n['category']] ?? '') ?><?= $n['unit_name'] ? ' · ' . e($n['unit_name']) : '' ?> · แก้ไข <?= e(thai_date($n['updated_at'], 'time')) ?></div></div></div></td>
+            <td class="r"><?= status_pill(news_state($n)) ?></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table></div>
+    </section>
+  </div>
+  <div class="narrow">
+    <section class="tbl">
+      <div class="ttl">ป๊อปอัพที่กำลังแสดง / ตั้งเวลาไว้ <a class="small" href="<?= e(url('admin/popups.php')) ?>">จัดการ ›</a></div>
+      <div class="tw"><table><tbody>
+        <?php if (!$popups): ?><tr><td class="empty">ไม่มีป๊อปอัพที่กำลังใช้งาน</td></tr><?php endif; ?>
+        <?php foreach ($popups as $p): ?>
+          <tr><td><b><?= e($p['title']) ?></b><div class="small mute"><?= e(date_range($p['start_at'], $p['end_at'])) ?></div></td>
+            <td class="r"><?= status_pill(popup_state($p)) ?></td></tr>
+        <?php endforeach; ?>
+      </tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>ลัด</h2>
+      <div style="display:grid;gap:8px">
+        <a href="<?= e(url('admin/popups.php', ['act' => 'new'])) ?>">+ ตั้งป๊อปอัพเทศกาล</a>
+        <?php if (Auth::isAdmin()): ?>
+          <a href="<?= e(url('admin/settings.php')) ?>">แก้ไขสารจากผู้อำนวยการ / ข้อมูลติดต่อ</a>
+          <a href="<?= e(url('admin/units.php')) ?>">จัดการแผนกวิชาและหน่วยงาน</a>
+          <a href="<?= e(url('admin/users.php')) ?>">เพิ่มผู้ใช้ให้หน่วยงาน</a>
+          <a href="<?= e(url('install.php')) ?>">เปิดตัวติดตั้ง (โหมดดูแลระบบ)</a>
         <?php endif; ?>
-      </td>
-    </tr>
-  </table>
-</div>
-
-<div class="panel">
-  <h2>ลิงก์ด่วน</h2>
-  <div class="btnrow" style="margin-top:0">
-    <a class="btn" href="<?= e(url('admin/news.php')) ?>">＋ เขียนข่าว</a>
-    <a class="btn" href="<?= e(url('admin/popups.php')) ?>">ตั้งป๊อปอัพ</a>
-    <a class="btn" href="<?= e(url('admin/units.php')) ?>">จัดการหน่วยงาน</a>
-    <a class="btn" href="<?= e(url('install.php')) ?>">ตรวจระบบ / install</a>
+      </div>
+    </section>
   </div>
 </div>
-<?php include __DIR__ . '/_layout_end.php'; ?>
+<?php admin_footer();

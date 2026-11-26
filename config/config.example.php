@@ -1,20 +1,18 @@
 <?php
-declare(strict_types=1);
-
-/*
- * ไฟล์ตัวอย่าง — install.php จะสร้าง config.php เอง
- * (ไฟล์ config.php จริงจะถูก git ignore และไม่เก็บรหัสผ่านใน repository)
- */
-
+// ตัวอย่างไฟล์ตั้งค่า — ปกติ install.php จะสร้าง config/config.php ให้อัตโนมัติ
+// ถ้าต้องการตั้งค่าเอง: คัดลอกเป็น config.php แล้วแก้ค่า จากนั้นรัน install.php เพื่อสร้างตารางและผู้ดูแล
 return [
+    'app' => [
+        'name'     => 'วิทยาลัยอาชีวศึกษาร้อยเอ็ด',
+        'timezone' => 'Asia/Bangkok',
+        'debug'    => false,      // true = แสดงข้อผิดพลาดบนหน้าจอ (ห้ามเปิดบนเซิร์ฟเวอร์จริง)
+        'base_url' => '',         // เว้นว่าง = ตรวจหาอัตโนมัติ เช่น '/rvc.web'
+    ],
     'db' => [
         'host' => '127.0.0.1',
         'port' => 3306,
         'name' => 'rvc_web',
-        'user' => 'root',
+        'user' => 'rvc_web',
         'pass' => '',
-    ],
-    'site' => [
-        'name' => 'วิทยาลัยอาชีวศึกษาร้อยเอ็ด',
     ],
 ];

@@ -1,0 +1,7 @@
+Options -Indexes
+DirectoryIndex index.php
+
+# ซ่อนไฟล์ระบบ
+<FilesMatch "^\.|\.(md|json|lock|log|sql|dist)$">
+    Require all denied
+</FilesMatch>
