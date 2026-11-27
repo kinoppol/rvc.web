@@ -36,6 +36,9 @@ require BASE_PATH . '/app/views/header.php';
     <?php if (!$isPublic): ?><div class="draft-banner">ตัวอย่าง — ข่าวนี้ยังไม่เผยแพร่ (<?= e(news_state($n)[0]) ?>) ผู้เข้าชมทั่วไปยังมองไม่เห็น</div><?php endif; ?>
     <?php if ($n['cover']): ?><div class="figure" data-sk style="background-image:url(<?= e(upload_url($n['cover'])) ?>)" role="img" aria-label="ภาพประกอบข่าว"></div><?php endif; ?>
     <div class="prose"><?= text_to_html((string) $n['body']) ?></div>
+    <?php if (Drive::folderIds((string) $n['body'])): ?>
+      <section class="drv" data-drive="<?= e(url('drive_gallery.php', ['id' => $n['id']])) ?>" aria-label="ภาพจาก Google Drive" hidden></section>
+    <?php endif; ?>
     <?php foreach (news_pdfs($n) as $i => $pdf): $src = url($pdf['path']); ?>
       <section class="pdfv" aria-label="เอกสาร <?= e($pdf['label']) ?>">
         <div class="pdfv-bar">

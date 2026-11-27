@@ -229,6 +229,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .news-gal a:hover img{transform:scale(1.04)}
 .prose ul{padding-left:1.3em;margin:0 0 1.1em}
 .prose a{word-break:break-word}
+.drv{margin:32px 0 0}
+.drv[hidden]{display:none}
+.drv h2{font-family:Anuphan,sans-serif;font-size:1.5rem;color:var(--navy);margin:0 0 4px}
+.drv .news-gal{margin:0}
+.drv>.news-gal{margin-top:12px}
+.drv-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px;margin:16px 0 10px}
+.drv-bar h3{margin:0;font-size:1rem;overflow-wrap:anywhere}
+.drv-bar a{font-size:.875rem;font-weight:600;text-decoration:none}
+.drv .news-gal a.err{display:grid;place-items:center;padding:8px;font-size:.75rem;color:var(--mute);text-align:center;overflow-wrap:anywhere;text-decoration:none}
+.drv-more{margin-top:12px}
+.drv-note{margin:16px 0 0;color:var(--mute);font-size:.875rem}
 .layout{display:flex;flex-wrap:wrap;gap:48px;padding-top:48px;padding-bottom:72px}
 .layout main,.layout>.main-col{flex:999 1 560px;min-width:0}
 .layout aside{flex:1 1 280px;min-width:0;display:grid;gap:20px;align-content:start}

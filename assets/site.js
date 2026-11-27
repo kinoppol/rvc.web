@@ -181,6 +181,70 @@
       }
     }).catch(function () { skDone(frame); note.textContent = 'แสดงเอกสารในหน้านี้ไม่ได้ — กด "เปิดในแท็บใหม่" เพื่อดูหรือดาวน์โหลด'; });
   });
+  /* ---------- ภาพจากโฟลเดอร์ Google Drive: กริดรูปย่อในหน้าอ่านข่าว ---------- */
+  var drv = document.querySelector('[data-drive]');
+  if (drv && window.fetch) (function () {
+    function make(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text) n.textContent = text;
+      return n;
+    }
+    function outLink(href, cls, text) {
+      var a = make('a', cls, text); a.href = href; a.target = '_blank'; a.rel = 'noopener';
+      return a;
+    }
+    function tile(item) {
+      var id = encodeURIComponent(item[0]), name = item[1] || 'ภาพจาก Google Drive';
+      var a = outLink('https://drive.google.com/file/d/' + id + '/view');
+      a.title = name;
+      var im = make('img');
+      im.alt = name; im.loading = 'lazy'; im.decoding = 'async'; im.referrerPolicy = 'no-referrer';
+      im.setAttribute('data-sk', '');
+      im.addEventListener('error', function () { a.className = 'err'; a.textContent = name; });   // โหลดรูปย่อไม่ได้ — ยังกดเปิดใน Drive ได้
+      im.src = 'https://lh3.googleusercontent.com/d/' + id + '=w400-h400-c';
+      a.appendChild(im);
+      return a;
+    }
+    function group(g, first, titled) {
+      var box = make('div', 'drv-group'), bar = make('div', 'drv-bar');
+      bar.appendChild(make('h3', '', (titled && g.name ? g.name + ' · ' : '') + g.images.length.toLocaleString('th-TH') + ' ภาพ'));
+      bar.appendChild(outLink('https://drive.google.com/drive/folders/' + encodeURIComponent(g.id), '', 'เปิดใน Google Drive ↗'));
+      var grid = make('div', 'news-gal'), more = make('button', 'pbtn drv-more'), shown = 0;
+      more.type = 'button';
+      function add(n) {
+        var part = document.createDocumentFragment(), start = shown;
+        g.images.slice(shown, shown + n).forEach(function (item) { part.appendChild(tile(item)); shown++; });
+        grid.appendChild(part);
+        skInit(grid);
+        var left = g.images.length - shown;
+        more.hidden = left <= 0;
+        more.textContent = 'แสดงเพิ่ม (เหลือ ' + left.toLocaleString('th-TH') + ' ภาพ)';
+        return grid.children[start];
+      }
+      more.addEventListener('click', function () { var a = add(48); if (a) a.focus({ preventScroll: true }); });
+      box.appendChild(bar); box.appendChild(grid); box.appendChild(more);
+      add(first);
+      return box;
+    }
+    drv.appendChild(make('h2', '', 'ประมวลภาพ'));
+    var wait = make('div', 'news-gal');
+    for (var i = 0; i < 8; i++) { var ph = make('a'); ph.setAttribute('data-sk', ''); ph.setAttribute('aria-hidden', 'true'); wait.appendChild(ph); }
+    drv.appendChild(wait);
+    drv.setAttribute('aria-busy', 'true');
+    drv.hidden = false;
+    fetch(drv.getAttribute('data-drive'), { credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) {
+        if (!j.groups.length) { drv.remove(); return; }   // โฟลเดอร์ไม่มีรูปหรือไม่ได้แชร์ — คงลิงก์ในเนื้อข่าวไว้
+        wait.remove();
+        var many = j.groups.length > 1;
+        j.groups.forEach(function (g) { drv.appendChild(group(g, many ? 12 : 24, many)); });
+        if (j.partial) drv.appendChild(make('p', 'drv-note', 'แสดงภาพได้บางส่วน — เปิดใน Google Drive เพื่อดูทั้งหมด'));
+        drv.removeAttribute('aria-busy');
+      })
+      .catch(function () { drv.remove(); });
+  })();
   /* ---------- ส่วนบนหน้าแรกแบบสไลด์ ---------- */
   var hero = document.querySelector('.hero.has-slides');
   if (hero) (function () {
