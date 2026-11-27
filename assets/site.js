@@ -54,4 +54,104 @@
       document.addEventListener('keydown', onKey);
     }
   }
+  /* ---------- เอกสาร PDF: ภาพหน้าปกจากหน้าแรก + กรอบแสดงเอกสาร ---------- */
+  var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  var pdfLib = null;
+  function loadPdfJs() {
+    if (pdfLib) return pdfLib;
+    pdfLib = new Promise(function (ok, fail) {
+      var sc = document.createElement('script');
+      sc.src = PDFJS + 'pdf.min.js';
+      sc.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); };
+      sc.onerror = fail;
+      document.head.appendChild(sc);
+    });
+    return pdfLib;
+  }
+  // โหลดเฉพาะส่วนที่ต้องใช้ของไฟล์ (Range request) ไม่ต้องดาวน์โหลดทั้งไฟล์
+  function openPdf(url) {
+    return loadPdfJs().then(function (lib) {
+      return lib.getDocument({ url: url, disableAutoFetch: true, disableStream: true, isEvalSupported: false }).promise;
+    });
+  }
+  function drawPage(doc, no, width) {
+    return doc.getPage(no).then(function (page) {
+      var base = page.getViewport({ scale: 1 });
+      var vp = page.getViewport({ scale: width / base.width });
+      var cv = document.createElement('canvas');
+      cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+      var ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () { return cv; });
+    });
+  }
+
+  // รูปย่อข่าว: วาดหน้าแรกของ PDF เมื่อเลื่อนมาใกล้ (ทีละ 2 ไฟล์) · จำผลไว้ในแท็บนี้
+  var thumbs = [].slice.call(document.querySelectorAll('[data-pdf]'));
+  if (thumbs.length) {
+    var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+               set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* เต็ม */ } } };
+    var queue = [], running = 0;
+    var show = function (el, src) { el.style.backgroundImage = 'url(' + src + ')'; el.classList.add('pdf-cover'); el.removeAttribute('data-doc'); };
+    var next = function () {
+      if (running >= 2 || !queue.length) return;
+      var el = queue.shift(), url = el.getAttribute('data-pdf');
+      running++;
+      var w = Math.min(900, Math.max(240, el.clientWidth * (window.devicePixelRatio || 1)));
+      openPdf(url)
+        .then(function (doc) { return drawPage(doc, 1, w).then(function (cv) { doc.destroy(); return cv; }); })
+        .then(function (cv) { var src = cv.toDataURL('image/jpeg', 0.8); show(el, src); ss.set('pdfthumb:' + url + ':' + Math.round(w), src); })
+        .catch(function () { /* เปิดไฟล์ไม่ได้ — คงภาพสัญลักษณ์เอกสารไว้ */ })
+        .then(function () { running--; next(); });
+    };
+    var want = function (el) {
+      var w = Math.round(Math.min(900, Math.max(240, el.clientWidth * (window.devicePixelRatio || 1))));
+      var hit = ss.get('pdfthumb:' + el.getAttribute('data-pdf') + ':' + w);
+      if (hit) { show(el, hit); return; }
+      queue.push(el); next();
+    };
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } });
+      }, { rootMargin: '300px' });
+      thumbs.forEach(function (el) { io.observe(el); });
+    } else {
+      thumbs.forEach(want);
+    }
+  }
+
+  // กรอบแสดง PDF ในหน้าอ่านข่าว
+  document.querySelectorAll('.pdfv').forEach(function (box) {
+    var frame = box.querySelector('[data-pdf-view]'), fs = box.querySelector('[data-pdf-fs]');
+    var canFs = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    if (fs && canFs) {
+      fs.hidden = false;
+      fs.addEventListener('click', function () {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } else {
+          (frame.requestFullscreen || frame.webkitRequestFullscreen).call(frame);
+        }
+      });
+    }
+    // เบราว์เซอร์ที่แสดง PDF ในหน้าเว็บไม่ได้ (มือถือส่วนใหญ่) → วาดทุกหน้าด้วย PDF.js แทน
+    if (navigator.pdfViewerEnabled !== false) return;
+    var url = frame.getAttribute('data-pdf-view');
+    frame.innerHTML = '';
+    frame.classList.add('pages');
+    var note = document.createElement('p'); note.className = 'pdfv-note'; note.textContent = 'กำลังโหลดเอกสาร…';
+    frame.appendChild(note);
+    openPdf(url).then(function (doc) {
+      note.remove();
+      var max = Math.min(doc.numPages, 60), w = Math.min(1400, frame.clientWidth * (window.devicePixelRatio || 1));
+      var chain = Promise.resolve();
+      for (var i = 1; i <= max; i++) {
+        (function (no) {
+          chain = chain.then(function () { return drawPage(doc, no, w).then(function (cv) { cv.setAttribute('aria-label', 'หน้า ' + no); frame.appendChild(cv); }); });
+        })(i);
+      }
+      if (doc.numPages > max) {
+        chain.then(function () { var m = document.createElement('p'); m.className = 'pdfv-note'; m.textContent = 'แสดง ' + max + ' จาก ' + doc.numPages + ' หน้า — กด "เปิดในแท็บใหม่" เพื่อดูทั้งหมด'; frame.appendChild(m); });
+      }
+    }).catch(function () { note.textContent = 'แสดงเอกสารในหน้านี้ไม่ได้ — กด "เปิดในแท็บใหม่" เพื่อดูหรือดาวน์โหลด'; });
+  });
 })();

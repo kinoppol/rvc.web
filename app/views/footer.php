@@ -53,6 +53,6 @@ $map      = Settings::get('map_embed_url');
   </div>
 </div>
 <?php endif; ?>
-<script src="<?= e(url('assets/site.js')) ?>?v=2"></script>
+<script src="<?= e(url('assets/site.js')) ?>?v=3"></script>
 </body>
 </html>

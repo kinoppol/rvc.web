@@ -74,7 +74,7 @@ require BASE_PATH . '/app/views/header.php';
     <?php else: [$tag, $color, $tint] = news_tag($lead); ?>
     <div class="news-lead-wrap">
       <a class="news-lead ph" href="<?= e(news_url($lead)) ?>">
-        <div class="cover" style="background-color:<?= e($tint) ?>;<?= $lead['cover'] ? 'background-image:url(' . e(upload_url($lead['cover'])) . ')' : '' ?>"><?php if (!$lead['cover']): ?><span class="lbl">ภาพข่าว</span><?php endif; ?></div>
+        <div class="cover"<?= news_cover_attr($lead, $tint) ?>></div>
         <div class="meta" style="color:<?= e($color) ?>"><?= e($tag) ?> <span>· <?= e(thai_date($lead['published_at'], 'short')) ?></span></div>
         <h3 class="hd cap"><?= e($lead['title']) ?></h3>
         <?php if ($lead['excerpt']): ?><p><?= e(str_limit($lead['excerpt'], 160)) ?></p><?php endif; ?>
@@ -82,7 +82,7 @@ require BASE_PATH . '/app/views/header.php';
       <div class="news-side">
         <?php foreach ($rest as $n): [$tag, $color, $tint] = news_tag($n); ?>
           <a class="news-row ph" href="<?= e(news_url($n)) ?>">
-            <div class="th" style="background-color:<?= e($tint) ?>;<?= $n['cover'] ? 'background-image:url(' . e(upload_url($n['cover'])) . ')' : '' ?>"></div>
+            <div class="th"<?= news_cover_attr($n, $tint) ?>></div>
             <div><div class="m"><span style="color:<?= e($color) ?>;font-weight:600"><?= e($tag) ?></span> · <?= e(thai_date($n['published_at'], 'short')) ?></div>
             <div class="t cap"><?= e($n['title']) ?></div></div>
           </a>

@@ -77,7 +77,7 @@ require BASE_PATH . '/app/views/header.php';
       <div class="cards">
         <?php foreach ($news as $n): ?>
           <a class="card" href="<?= e(news_url($n)) ?>">
-            <div class="img<?= $n['cover'] ? '' : ' hatch' ?>" style="<?= $n['cover'] ? 'background-image:url(' . e(upload_url($n['cover'])) . ')' : '' ?>"></div>
+            <div class="img"<?= news_cover_attr($n) ?>></div>
             <div class="c"><div class="m"><?= e(thai_date($n['published_at'], 'long')) ?></div><div class="t"><?= e($n['title']) ?></div></div>
           </a>
         <?php endforeach; ?>

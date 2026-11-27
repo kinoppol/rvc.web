@@ -219,3 +219,40 @@ function seed_sample_news(PDO $db, int $authorId): int
     }
     return count($items);
 }
+
+/**
+ * ไฟล์ PDF ที่แนบในเนื้อข่าว (ลิงก์ไปยังไฟล์ใน uploads/ ของเว็บนี้ และมีไฟล์อยู่จริง)
+ * @return list<array{path:string, label:string}>
+ */
+function news_pdfs(array $n): array
+{
+    static $cache = [];
+    $key = (int) ($n['id'] ?? 0) . ':' . md5((string) ($n['body'] ?? ''));
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    $out = [];
+    if (preg_match_all('~\[([^\]\n]{1,300})\]\((uploads/[A-Za-z0-9/_.\-]+\.pdf)\)~iu', (string) ($n['body'] ?? ''), $m, PREG_SET_ORDER)) {
+        foreach ($m as [, $label, $path]) {
+            if (!str_contains($path, '..') && !isset($out[$path]) && is_file(BASE_PATH . '/' . $path)) {
+                $out[$path] = ['path' => $path, 'label' => $label];
+            }
+        }
+    }
+    return $cache[$key] = array_values($out);
+}
+
+/**
+ * แอตทริบิวต์ภาพหน้าปกข่าวสำหรับกล่องรูปย่อ
+ *   มีภาพหน้าปก → ใช้ภาพนั้น · ไม่มีแต่แนบ PDF → แสดงหน้าแรกของ PDF (site.js วาดด้วย PDF.js)
+ *   ไม่มีทั้งสองอย่าง → ภาพสัญลักษณ์เอกสาร
+ */
+function news_cover_attr(array $n, string $tint = ''): string
+{
+    $bg = $tint !== '' ? 'background-color:' . e($tint) . ';' : '';
+    if (!empty($n['cover'])) {
+        return ' style="' . $bg . 'background-image:url(' . e(upload_url($n['cover'])) . ')"';
+    }
+    $pdf = news_pdfs($n)[0]['path'] ?? null;
+    return ' data-doc' . ($pdf ? ' data-pdf="' . e(url($pdf)) . '"' : '') . ($bg !== '' ? ' style="' . $bg . '"' : '');
+}

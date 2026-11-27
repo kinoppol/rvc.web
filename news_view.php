@@ -36,6 +36,20 @@ require BASE_PATH . '/app/views/header.php';
     <?php if (!$isPublic): ?><div class="draft-banner">ตัวอย่าง — ข่าวนี้ยังไม่เผยแพร่ (<?= e(news_state($n)[0]) ?>) ผู้เข้าชมทั่วไปยังมองไม่เห็น</div><?php endif; ?>
     <?php if ($n['cover']): ?><div class="figure" style="background-image:url(<?= e(upload_url($n['cover'])) ?>)" role="img" aria-label="ภาพประกอบข่าว"></div><?php endif; ?>
     <div class="prose"><?= text_to_html((string) $n['body']) ?></div>
+    <?php foreach (news_pdfs($n) as $i => $pdf): $src = url($pdf['path']); ?>
+      <section class="pdfv" aria-label="เอกสาร <?= e($pdf['label']) ?>">
+        <div class="pdfv-bar">
+          <span class="t"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg><?= e($pdf['label']) ?></span>
+          <span class="a">
+            <a class="pbtn" href="<?= e($src) ?>" target="_blank" rel="noopener">เปิดในแท็บใหม่ <span aria-hidden="true">↗</span></a>
+            <button type="button" class="pbtn" data-pdf-fs hidden>เต็มหน้าจอ <span aria-hidden="true">⛶</span></button>
+          </span>
+        </div>
+        <div class="pdfv-frame" data-pdf-view="<?= e($src) ?>">
+          <iframe src="<?= e($src) ?>#navpanes=0&amp;view=FitH" title="<?= e($pdf['label']) ?>" <?= $i > 0 ? 'loading="lazy"' : '' ?>></iframe>
+        </div>
+      </section>
+    <?php endforeach; ?>
     <?php if ($n['unit_slug']): ?>
       <p style="margin-top:32px"><a href="<?= e(unit_url(['slug' => $n['unit_slug']])) ?>">← ไปที่หน้า<?= e(unit_title(['name' => $n['unit_name'], 'kind' => $n['unit_kind']])) ?></a></p>
     <?php endif; ?>

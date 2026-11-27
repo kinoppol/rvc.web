@@ -260,4 +260,27 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
   .unit-nav{top:69px}
   .page-h h1{font-size:1.75rem}
 }
+/* รูปย่อข่าวที่ไม่มีภาพหน้าปก: ภาพสัญลักษณ์เอกสาร · แนบ PDF → หน้าแรกของ PDF */
+[data-doc],.card .img[data-doc],.news-row .th[data-doc],.cover[data-doc]{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 76'%3E%3Cpath d='M4 2h38l16 16v54a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z' fill='%23fff' stroke='%23a9b7cc' stroke-width='2'/%3E%3Cpath d='M42 2v14a2 2 0 0 0 2 2h14' fill='%23e3e9f2' stroke='%23a9b7cc' stroke-width='2' stroke-linejoin='round'/%3E%3Cg stroke='%23c9d3e2' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M12 30h34M12 38h34M12 46h34M12 54h22'/%3E%3C/g%3E%3C/svg%3E");background-size:auto 56%;background-position:center;background-repeat:no-repeat}
+[data-doc][data-pdf],.card .img[data-doc][data-pdf],.news-row .th[data-doc][data-pdf],.cover[data-doc][data-pdf]{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 76'%3E%3Cpath d='M4 2h38l16 16v54a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z' fill='%23fff' stroke='%23a9b7cc' stroke-width='2'/%3E%3Cpath d='M42 2v14a2 2 0 0 0 2 2h14' fill='%23e3e9f2' stroke='%23a9b7cc' stroke-width='2' stroke-linejoin='round'/%3E%3Cg stroke='%23c9d3e2' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M12 26h34M12 34h34M12 42h22'/%3E%3C/g%3E%3Crect x='10' y='52' width='28' height='14' rx='2' fill='%23b42318'/%3E%3Ctext x='24' y='62.5' text-anchor='middle' font-family='Arial,sans-serif' font-size='10' font-weight='700' fill='%23fff'%3EPDF%3C/text%3E%3C/svg%3E")}
+.pdf-cover,.card .img.pdf-cover,.news-row .th.pdf-cover,.cover.pdf-cover{background-size:cover;background-position:top center;background-repeat:no-repeat;box-shadow:inset 0 0 0 1px var(--line)}
+
+/* กรอบแสดง PDF ในหน้าอ่านข่าว */
+.pdfv{margin:32px 0 0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+.pdfv-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--line)}
+.pdfv-bar .t{display:inline-flex;align-items:center;gap:8px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.pdfv-bar .t svg{flex:none;color:var(--red)}
+.pdfv-bar .a{display:flex;flex-wrap:wrap;gap:8px}
+.pbtn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--navy);font:inherit;font-size:.875rem;font-weight:600;text-decoration:none;cursor:pointer}
+.pbtn:hover{border-color:var(--navy);color:var(--navy)}
+.pbtn[hidden]{display:none}
+.pdfv-frame{height:80vh;min-height:480px;background:#525659}
+.pdfv-frame iframe{display:block;width:100%;height:100%;border:0}
+.pdfv-frame.pages{height:auto;min-height:0;max-height:80vh;overflow-y:auto;padding:12px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.pdfv-frame.pages canvas{width:100%;height:auto;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.pdfv-frame:fullscreen{height:100vh;max-height:none}
+.pdfv-frame:-webkit-full-screen{height:100vh;max-height:none}
+@media (max-width:600px){.pdfv-frame{height:70vh;min-height:360px}}
+.pdfv-note{margin:24px 0;color:#fff;font-size:.875rem;text-align:center}
+
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.curtain{display:none!important}}
