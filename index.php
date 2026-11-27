@@ -116,7 +116,7 @@ require BASE_PATH . '/app/views/header.php';
 <section class="sec">
   <div class="wrap director">
     <figure>
-      <div class="photo" style="<?= ($ph = Settings::get('director_photo')) ? 'background-image:url(' . e(upload_url($ph)) . ')' : '' ?>" role="img" aria-label="ภาพผู้อำนวยการ"></div>
+      <div class="photo"<?= ($ph = Settings::get('director_photo')) ? ' data-sk' : '' ?> style="<?= $ph ? 'background-image:url(' . e(upload_url($ph)) . ')' : '' ?>" role="img" aria-label="ภาพผู้อำนวยการ"></div>
       <figcaption><?= e($director) ?><br>ผู้อำนวยการ<?= e(Settings::get('site_name')) ?></figcaption>
     </figure>
     <div class="txt">
@@ -140,7 +140,7 @@ require BASE_PATH . '/app/views/header.php';
     <div class="sec-h"><h2 class="hd">ภาพกิจกรรม</h2><a class="more" href="<?= e(url('news.php', ['cat' => 'activity'])) ?>">กิจกรรมทั้งหมด →</a></div>
     <div class="gallery">
       <?php foreach ($gallery as $i => $n): ?>
-        <a class="ph <?= $i === 0 ? 'big' : '' ?>" href="<?= e(news_url($n)) ?>" style="background-image:url(<?= e(upload_url($n['cover'])) ?>)"><span class="cap"><?= e($n['title']) ?></span></a>
+        <a class="ph <?= $i === 0 ? 'big' : '' ?>" href="<?= e(news_url($n)) ?>" data-sk style="background-image:url(<?= e(upload_url($n['cover'])) ?>)"><span class="cap"><?= e($n['title']) ?></span></a>
       <?php endforeach; ?>
     </div>
   </div>

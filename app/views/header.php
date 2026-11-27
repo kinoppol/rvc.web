@@ -25,6 +25,7 @@ $menu = [
 <html lang="th">
 <head>
 <meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e(($pageTitle ?? '') !== '' ? $pageTitle . ' · ' . $siteName : $siteName) ?></title>
 <meta name="description" content="<?= e($metaDesc ?? Settings::get('hero_lead')) ?>">
@@ -33,7 +34,7 @@ $menu = [
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=5">
+<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=6">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>

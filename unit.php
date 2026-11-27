@@ -50,7 +50,7 @@ require BASE_PATH . '/app/views/header.php';
 <div class="wrap layout">
   <div class="main-col">
     <div class="about unit-sec" id="about">
-      <div class="img" style="background-color:<?= e($g['tint']) ?>;<?= $u['cover'] ? 'background-image:url(' . e(upload_url($u['cover'])) . ')' : 'background-image:repeating-linear-gradient(135deg,transparent 0 10px,rgba(19,33,58,.06) 10px 11px)' ?>"><?= $u['cover'] ? '' : 'ภาพหน้าปกหน่วยงาน' ?></div>
+      <div class="img"<?= $u['cover'] ? ' data-sk' : '' ?> style="background-color:<?= e($g['tint']) ?>;<?= $u['cover'] ? 'background-image:url(' . e(upload_url($u['cover'])) . ')' : 'background-image:repeating-linear-gradient(135deg,transparent 0 10px,rgba(19,33,58,.06) 10px 11px)' ?>"><?= $u['cover'] ? '' : 'ภาพหน้าปกหน่วยงาน' ?></div>
       <div class="tx">
         <h2>เกี่ยวกับ<?= $isDept ? 'แผนก' : 'หน่วยงาน' ?></h2>
         <div class="prose" style="font-size:1rem;color:var(--mute)"><?= $u['intro'] ? text_to_html($u['intro']) : '<p>[คำแนะนำหน่วยงาน — ผู้ดูแลแก้ไขได้จากระบบจัดการ › เว็บไซต์ย่อยหน่วยงาน]</p>' ?></div>

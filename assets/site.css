@@ -283,4 +283,16 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 @media (max-width:600px){.pdfv-frame{height:70vh;min-height:360px}}
 .pdfv-note{margin:24px 0;color:#fff;font-size:.875rem;text-align:center}
 
+/* Skeleton ระหว่างโหลดรูปและเอกสาร (เฉพาะเมื่อ JavaScript ทำงาน — site.js เอาออกเมื่อโหลดเสร็จ) */
+@keyframes sk{from{background-position:100% 0}to{background-position:0 0}}
+.js [data-sk]{position:relative;overflow:hidden}
+.js [data-sk]::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(100deg,#e4eaf2 30%,#f5f8fc 50%,#e4eaf2 70%);background-size:300% 100%;animation:sk 1.4s ease-in-out infinite;transition:opacity .4s ease}
+.js [data-sk].sk-done::after{opacity:0}
+.js img[data-sk]{min-height:200px;background:linear-gradient(100deg,#e4eaf2 30%,#f5f8fc 50%,#e4eaf2 70%);background-size:300% 100%;animation:sk 1.4s ease-in-out infinite}
+.js .pdfv-frame[data-sk]::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;transition:opacity .4s ease;background:
+  linear-gradient(#dfe6ef,#dfe6ef) 50% 64px/min(70%,560px) 22px no-repeat,
+  repeating-linear-gradient(to bottom,#e8edf4 0 10px,transparent 10px 26px) 50% 128px/min(70%,560px) calc(100% - 180px) no-repeat,#f8fafc}
+.js .pdfv-frame[data-sk]::after{z-index:3;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.65) 50%,transparent 70%);background-size:300% 100%}
+.js .pdfv-frame[data-sk].sk-done::before{opacity:0}
+
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.curtain{display:none!important}}

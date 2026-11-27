@@ -54,6 +54,24 @@
       document.addEventListener('keydown', onKey);
     }
   }
+  /* ---------- Skeleton: แสดงแถบโหลดจนกว่ารูป/เอกสารจะพร้อม ---------- */
+  function skDone(el) {
+    if (!el || !el.hasAttribute('data-sk') || el.classList.contains('sk-done')) return;
+    el.classList.add('sk-done');
+    setTimeout(function () { el.removeAttribute('data-sk'); el.classList.remove('sk-done'); }, 450);
+  }
+  document.querySelectorAll('[data-sk]').forEach(function (el) {
+    if (el.hasAttribute('data-pdf') || el.hasAttribute('data-pdf-view')) return;   // ส่วน PDF จัดการด้านล่าง
+    var src = el.tagName === 'IMG' ? el.currentSrc || el.src : (/url\(["']?([^"')]+)["']?\)/.exec(el.style.backgroundImage) || [])[1];
+    if (!src) { skDone(el); return; }
+    if (el.tagName === 'IMG' && el.complete && el.naturalWidth) { skDone(el); return; }
+    var im = el.tagName === 'IMG' ? el : new Image();
+    im.addEventListener('load', function () { skDone(el); });
+    im.addEventListener('error', function () { skDone(el); });
+    if (im !== el) im.src = src;
+    setTimeout(function () { skDone(el); }, 15000);   // ไม่ค้างตลอดไปถ้าเครือข่ายช้ามาก
+  });
+
   /* ---------- เอกสาร PDF: ภาพหน้าปกจากหน้าแรก + กรอบแสดงเอกสาร ---------- */
   var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   var pdfLib = null;
@@ -91,7 +109,7 @@
     var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
                set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* เต็ม */ } } };
     var queue = [], running = 0;
-    var show = function (el, src) { el.style.backgroundImage = 'url(' + src + ')'; el.classList.add('pdf-cover'); el.removeAttribute('data-doc'); };
+    var show = function (el, src) { el.style.backgroundImage = 'url(' + src + ')'; el.classList.add('pdf-cover'); el.removeAttribute('data-doc'); skDone(el); };
     var next = function () {
       if (running >= 2 || !queue.length) return;
       var el = queue.shift(), url = el.getAttribute('data-pdf');
@@ -100,7 +118,7 @@
       openPdf(url)
         .then(function (doc) { return drawPage(doc, 1, w).then(function (cv) { doc.destroy(); return cv; }); })
         .then(function (cv) { var src = cv.toDataURL('image/jpeg', 0.8); show(el, src); ss.set('pdfthumb:' + url + ':' + Math.round(w), src); })
-        .catch(function () { /* เปิดไฟล์ไม่ได้ — คงภาพสัญลักษณ์เอกสารไว้ */ })
+        .catch(function () { skDone(el); /* เปิดไฟล์ไม่ได้ — คงภาพสัญลักษณ์เอกสารไว้ */ })
         .then(function () { running--; next(); });
     };
     var want = function (el) {
@@ -123,6 +141,9 @@
   document.querySelectorAll('.pdfv').forEach(function (box) {
     var frame = box.querySelector('[data-pdf-view]'), fs = box.querySelector('[data-pdf-fs]');
     var canFs = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+    var ifr = frame.querySelector('iframe');
+    if (ifr) ifr.addEventListener('load', function () { setTimeout(function () { skDone(frame); }, 250); });
+    setTimeout(function () { skDone(frame); }, 15000);
     if (fs && canFs) {
       fs.hidden = false;
       fs.addEventListener('click', function () {
@@ -142,6 +163,7 @@
     frame.appendChild(note);
     openPdf(url).then(function (doc) {
       note.remove();
+      skDone(frame);
       var max = Math.min(doc.numPages, 60), w = Math.min(1400, frame.clientWidth * (window.devicePixelRatio || 1));
       var chain = Promise.resolve();
       for (var i = 1; i <= max; i++) {
@@ -152,6 +174,6 @@
       if (doc.numPages > max) {
         chain.then(function () { var m = document.createElement('p'); m.className = 'pdfv-note'; m.textContent = 'แสดง ' + max + ' จาก ' + doc.numPages + ' หน้า — กด "เปิดในแท็บใหม่" เพื่อดูทั้งหมด'; frame.appendChild(m); });
       }
-    }).catch(function () { note.textContent = 'แสดงเอกสารในหน้านี้ไม่ได้ — กด "เปิดในแท็บใหม่" เพื่อดูหรือดาวน์โหลด'; });
+    }).catch(function () { skDone(frame); note.textContent = 'แสดงเอกสารในหน้านี้ไม่ได้ — กด "เปิดในแท็บใหม่" เพื่อดูหรือดาวน์โหลด'; });
   });
 })();

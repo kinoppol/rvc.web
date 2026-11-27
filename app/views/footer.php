@@ -41,7 +41,7 @@ $map      = Settings::get('map_embed_url');
 <div class="popup" id="popup" role="dialog" aria-modal="true" aria-labelledby="pp-t" data-key="popup-<?= (int) $popup['id'] ?>-<?= e(substr(sha1($popup['updated_at']), 0, 6)) ?>" hidden>
   <div class="popup-box">
     <?php if ($popup['image']): ?>
-      <img class="popup-img" src="<?= e(upload_url($popup['image'])) ?>" alt="<?= e($popup['title']) ?>">
+      <img class="popup-img" data-sk src="<?= e(upload_url($popup['image'])) ?>" alt="<?= e($popup['title']) ?>">
     <?php else: ?>
       <div class="popup-ph"><div class="hd"><?= e($popup['title']) ?></div></div>
     <?php endif; ?>
@@ -53,6 +53,6 @@ $map      = Settings::get('map_embed_url');
   </div>
 </div>
 <?php endif; ?>
-<script src="<?= e(url('assets/site.js')) ?>?v=3"></script>
+<script src="<?= e(url('assets/site.js')) ?>?v=4"></script>
 </body>
 </html>

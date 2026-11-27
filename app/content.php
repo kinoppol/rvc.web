@@ -251,8 +251,8 @@ function news_cover_attr(array $n, string $tint = ''): string
 {
     $bg = $tint !== '' ? 'background-color:' . e($tint) . ';' : '';
     if (!empty($n['cover'])) {
-        return ' style="' . $bg . 'background-image:url(' . e(upload_url($n['cover'])) . ')"';
+        return ' data-sk style="' . $bg . 'background-image:url(' . e(upload_url($n['cover'])) . ')"';
     }
     $pdf = news_pdfs($n)[0]['path'] ?? null;
-    return ' data-doc' . ($pdf ? ' data-pdf="' . e(url($pdf)) . '"' : '') . ($bg !== '' ? ' style="' . $bg . '"' : '');
+    return ' data-doc' . ($pdf ? ' data-sk data-pdf="' . e(url($pdf)) . '"' : '') . ($bg !== '' ? ' style="' . $bg . '"' : '');
 }

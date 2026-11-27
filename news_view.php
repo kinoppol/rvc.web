@@ -34,7 +34,7 @@ require BASE_PATH . '/app/views/header.php';
 <div class="wrap layout">
   <article class="main-col article">
     <?php if (!$isPublic): ?><div class="draft-banner">ตัวอย่าง — ข่าวนี้ยังไม่เผยแพร่ (<?= e(news_state($n)[0]) ?>) ผู้เข้าชมทั่วไปยังมองไม่เห็น</div><?php endif; ?>
-    <?php if ($n['cover']): ?><div class="figure" style="background-image:url(<?= e(upload_url($n['cover'])) ?>)" role="img" aria-label="ภาพประกอบข่าว"></div><?php endif; ?>
+    <?php if ($n['cover']): ?><div class="figure" data-sk style="background-image:url(<?= e(upload_url($n['cover'])) ?>)" role="img" aria-label="ภาพประกอบข่าว"></div><?php endif; ?>
     <div class="prose"><?= text_to_html((string) $n['body']) ?></div>
     <?php foreach (news_pdfs($n) as $i => $pdf): $src = url($pdf['path']); ?>
       <section class="pdfv" aria-label="เอกสาร <?= e($pdf['label']) ?>">
@@ -45,7 +45,7 @@ require BASE_PATH . '/app/views/header.php';
             <button type="button" class="pbtn" data-pdf-fs hidden>เต็มหน้าจอ <span aria-hidden="true">⛶</span></button>
           </span>
         </div>
-        <div class="pdfv-frame" data-pdf-view="<?= e($src) ?>">
+        <div class="pdfv-frame" data-sk data-pdf-view="<?= e($src) ?>">
           <iframe src="<?= e($src) ?>#navpanes=0&amp;view=FitH" title="<?= e($pdf['label']) ?>" <?= $i > 0 ? 'loading="lazy"' : '' ?>></iframe>
         </div>
       </section>
