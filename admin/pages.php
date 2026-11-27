@@ -26,6 +26,10 @@ if (is_post()) {
         'body'         => (string) ($_POST['body'] ?? ''),
         'is_published' => (int) !empty($_POST['is_published']),
     ];
+    $ref = input('source_ref');   // หน้าที่ดึงมาจากเว็บเดิม (ผู้ช่วย AI)
+    if (preg_match('~^page:/[A-Za-z0-9/_\-]{1,110}$~', $ref) && !Database::value('SELECT id FROM pages WHERE source_ref = ? AND id <> ?', [$ref, $id])) {
+        $data['source_ref'] = $ref;
+    }
     $err = match (true) {
         $data['title'] === '' => 'กรุณากรอกชื่อหน้า',
         $data['slug'] === ''  => 'กรุณากรอกชื่อ URL (a-z, 0-9, -)',

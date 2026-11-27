@@ -5,6 +5,7 @@
 /storage/installed.lock
 /storage/sessions/*
 /storage/logs/*
+/storage/cache/
 /uploads/*
 !/storage/sessions/.gitkeep
 !/storage/logs/.gitkeep

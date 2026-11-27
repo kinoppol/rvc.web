@@ -29,6 +29,61 @@ if (!ai_can_use()) {
     ai_json(403, ['ok' => false, 'error' => 'บัญชีของคุณไม่มีสิทธิ์ใช้ผู้ช่วย AI']);
 }
 
+/* ------------------------------ ดึงข้อมูลจากเว็บเดิม / ลิงก์ (ไม่ใช้ AI) ------------------------------ */
+$action = input('action');
+if ($action !== '') {
+    session_write_close();
+    set_time_limit(300);
+    try {
+        switch ($action) {
+            case 'legacy_sources':
+                $sources = array_map(fn($s) => $s['label'], LegacySite::SOURCES);
+                $pages = [];
+                try {
+                    $pages = array_map(fn($p) => ['path' => $p, 'label' => LegacySite::pageLabel($p)], LegacySite::pages());
+                } catch (Throwable $ex) {
+                    log_error('legacy pages: ' . $ex->getMessage());
+                }
+                ai_json(200, ['ok' => true, 'sources' => $sources, 'pages' => $pages, 'site' => LegacySite::siteBase()]);
+
+            case 'legacy_list':
+                $l = LegacySite::list(input('source'), input('q'), max(1, input_int('page', 1)), 15);
+                $done = LegacySite::importedRefs();
+                ai_json(200, ['ok' => true] + $l + ['items' => array_map(fn($i) => [
+                    'id' => $i['id'], 'ref' => $i['ref'], 'title' => $i['title'], 'date' => $i['date'] ? thai_date($i['date']) : '',
+                    'image' => $i['image'] !== '', 'imported' => isset($done[$i['ref']]),
+                ], $l['items'])]);
+
+            case 'legacy_item':
+                $source = input('source');
+                if ($source === 'page') {
+                    $r = LegacySite::page(input('path'));
+                    ai_json(200, ['ok' => true, 'title' => $r['title'], 'text' => $r['text'], 'image' => '', 'date' => null, 'ref' => 'page:' . input('path'),
+                        'category' => null, 'url' => $r['url'], 'warnings' => $r['warnings']]);
+                }
+                $it = LegacySite::item($source, input_int('id'));
+                $c  = LegacySite::compose($it);
+                ai_json(200, ['ok' => true, 'title' => $it['title'], 'text' => $c['text'], 'image' => $it['image'], 'date' => $it['date'],
+                    'ref' => $it['ref'], 'category' => $it['category'], 'url' => $it['view'], 'warnings' => $c['warnings']]);
+
+            case 'fetch_url':
+                $r = LegacySite::fromUrl(input('url'));
+                ai_json(200, ['ok' => true] + $r);
+
+            case 'legacy_cover':
+                $u = input('url');
+                $path = LegacySite::isLegacyUrl($u) ? LegacySite::mirrorFile($u, true) : null;
+                if ($path === null) {
+                    ai_json(422, ['ok' => false, 'error' => 'รูปนี้ไม่ได้อยู่บนเว็บเดิม — ดาวน์โหลดแล้วอัปโหลดเองได้']);
+                }
+                ai_json(200, ['ok' => true, 'path' => $path, 'url' => url($path)]);
+        }
+        ai_json(422, ['ok' => false, 'error' => 'ไม่รู้จักคำสั่ง']);
+    } catch (Throwable $ex) {
+        ai_json(502, ['ok' => false, 'error' => $ex->getMessage()]);
+    }
+}
+
 $task = input('task');
 if (!isset(Ai::TASKS[$task])) {
     ai_json(422, ['ok' => false, 'error' => 'ไม่รู้จักงานที่สั่ง']);

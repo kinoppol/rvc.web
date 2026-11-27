@@ -22,6 +22,7 @@ require BASE_PATH . '/app/Migrator.php';
 require BASE_PATH . '/app/Requirements.php';
 require BASE_PATH . '/app/content.php';
 require BASE_PATH . '/app/Ai.php';
+require BASE_PATH . '/app/LegacySite.php';
 
 $configFile = BASE_PATH . '/config/config.php';
 $config = is_file($configFile) ? require $configFile : null;

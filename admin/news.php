@@ -97,6 +97,14 @@ if (is_post() && in_array($act, ['save', 'delete', 'approve'], true)) {
         'unit_id' => $unitId, 'status' => $status, 'published_at' => $publishAt ?? $old['published_at'] ?? null,
         'pinned' => $isAdmin ? (int) !empty($_POST['pinned']) : (int) ($old['pinned'] ?? 0),
     ];
+    $legacyCover = input('cover_legacy');   // ภาพหน้าปกที่ทำสำเนาจากเว็บเดิม (ผู้ช่วย AI)
+    if (!$cover && preg_match('~^uploads/legacy/\d{4}/\d{2}/[a-f0-9]{24}\.(jpg|png|webp|gif)$~', $legacyCover) && is_file(BASE_PATH . '/' . $legacyCover)) {
+        $cover = $legacyCover;
+    }
+    $ref = input('source_ref');
+    if (preg_match('~^[a-z]+:\d+$~', $ref) && !Database::value('SELECT id FROM news WHERE source_ref = ? AND id <> ?', [$ref, $id])) {
+        $data['source_ref'] = $ref;
+    }
     if ($cover) {
         $data['cover'] = $cover;
     } elseif (!empty($_POST['remove_cover'])) {

@@ -176,3 +176,20 @@ body.ai-on .main{padding-right:472px}
 .ai-title{text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:3px;background:#fff;cursor:pointer;line-height:1.5}
 .ai-title:hover{border-color:var(--blue);background:var(--info)}
 @media (max-width:1200px){body.ai-on .main{padding-right:32px}}
+/* ดึงข้อมูลจากเว็บเดิม */
+.lg-box{margin-top:14px;border:1px solid var(--line);border-radius:4px;padding:0 12px;background:var(--bg)}
+.lg-box summary{cursor:pointer;font-weight:600;padding:10px 0}
+.lg-box[open]{padding-bottom:12px}
+.lg-row{display:flex;gap:6px;margin-bottom:8px}.lg-row input,.lg-row select{flex:1;min-width:0}
+.lg-row input[hidden]{display:none}
+.lg-list{display:grid;gap:4px;max-height:300px;overflow-y:auto;margin-top:6px}
+.lg-item{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:3px;background:#fff;cursor:pointer;line-height:1.45;font-size:14px}
+.lg-item:hover{border-color:var(--blue);background:var(--info)}
+.lg-item small{color:var(--mute);font-size:12px}
+.lg-item.done{opacity:.7}.lg-item.done small{color:var(--ok)}
+.lg-pager{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px}
+.lg-card{margin-top:12px;border:1px solid var(--blue);border-radius:4px;padding:10px 12px;background:var(--info)}
+.lg-card[hidden]{display:none}
+.lg-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;line-height:1.5}
+.lg-pre{min-height:140px;max-height:260px;margin-top:8px;font-size:14px;background:#fff}
+.ai-x.dark{color:var(--ink);flex:none}

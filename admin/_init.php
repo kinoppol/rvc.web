@@ -21,6 +21,7 @@ const ADMIN_ICONS = [
     'sys'  => 'M9 12l2 2 4-4M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z',
     'out'  => 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11',
     'ext'  => 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    'imp'  => 'M12 3v12M7 10l5 5 5-5M4 17v3h16v-3',
     'ai'   => 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z',
 ];
 
@@ -34,6 +35,7 @@ const ADMIN_MENU = [
     ['users', 'ผู้ใช้และสิทธิ์', 'user', 'users.php', 'ผู้ดูแลระบบ', true],
     ['settings', 'ตั้งค่าเว็บไซต์', 'set', 'settings.php', null, true],
     ['ai', 'ผู้ช่วย AI', 'ai', 'ai.php', null, true],
+    ['legacy', 'นำเข้าจากเว็บเดิม', 'imp', 'legacy.php', null, true],
     ['migrations', 'Migrations', 'db', 'migrations.php', null, true],
     ['system', 'ตรวจสอบระบบ', 'sys', 'system.php', null, true],
 ];
@@ -68,7 +70,7 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=2">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=3">
 </head>
 <body>
 <div class="shell">
@@ -107,7 +109,7 @@ function admin_footer(): void
 </main>
 </div>
 <script src="<?= e(url('assets/admin.js')) ?>?v=2"></script>
-<?php if (!empty($GLOBALS['_ai_panel'])): ?><script src="<?= e(url('assets/ai.js')) ?>?v=1"></script><?php endif; ?>
+<?php if (!empty($GLOBALS['_ai_panel'])): ?><script src="<?= e(url('assets/ai.js')) ?>?v=2"></script><?php endif; ?>
 </body>
 </html>
 <?php
@@ -139,6 +141,8 @@ function ai_button(string $kind, array $fields): string
     $cfg = [
         'endpoint' => url('admin/ai_api.php'),
         'csrf'     => Csrf::token(),
+        'legacy'   => LegacySite::siteBase(),
+        'cover'    => $kind === 'news',
         'kind'     => $kind,
         'fields'   => $fields,
         'models'   => array_map(fn($m) => [
@@ -148,7 +152,7 @@ function ai_button(string $kind, array $fields): string
             'default' => (bool) $m['is_default'],
         ], $models),
         'tasks'    => array_map(fn($k) => Ai::TASKS[$k][0], array_combine($keys = $kind === 'popup'
-            ? ['popup', 'improve', 'proofread', 'shorten', 'free']
+            ? ['popup', 'import', 'improve', 'proofread', 'shorten', 'free']
             : array_values(array_diff(array_keys(Ai::TASKS), ['popup'])), $keys)),
     ];
     return '<button class="btn ghost ai-open" type="button" data-ai="' . e(json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" aria-haspopup="dialog">'

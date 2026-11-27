@@ -148,17 +148,26 @@ function str_limit(string $s, int $len): string
 /**
  * แปลงข้อความธรรมดาเป็น HTML ที่ปลอดภัย
  * ย่อหน้าคั่นด้วยบรรทัดว่าง · บรรทัดขึ้นต้น "## " = หัวข้อย่อย · "- " = รายการ · ลิงก์ http(s) กดได้
+ * ลิงก์มีชื่อ: [ข้อความ](https://...) หรือ [ข้อความ](uploads/...) สำหรับไฟล์ที่เก็บในเว็บนี้
  */
 function text_to_html(string $text): string
 {
     $text   = str_replace(["\r\n", "\r"], "\n", trim($text));
     $blocks = preg_split('/\n{2,}/', $text) ?: [];
     $out    = '';
-    $link   = fn(string $s) => preg_replace(
-        '~(https?://[^\s<]+[^\s<.,;:!?)\]"\'])~u',
-        '<a href="$1" rel="noopener" target="_blank">$1</a>',
-        $s
-    ) ?? $s;
+    $link   = function (string $s): string {
+        // 1) [ข้อความ](url) — เก็บไว้ชั่วคราวก่อน เพื่อไม่ให้ขั้นที่ 2 ทำลิงก์ซ้อน
+        $named = [];
+        $s = preg_replace_callback('~\[([^\]\n]{1,300})\]\((https?://[^\s)]+|uploads/[A-Za-z0-9/_.\-]+)\)~u', function ($m) use (&$named) {
+            $href = str_starts_with($m[2], 'uploads/') ? e(url(html_entity_decode($m[2]))) : $m[2];
+            $ext  = str_starts_with($m[2], 'uploads/') ? '' : ' rel="noopener" target="_blank"';
+            $named[] = '<a href="' . $href . '"' . $ext . '>' . $m[1] . '</a>';
+            return "\x01" . (count($named) - 1) . "\x02";
+        }, $s) ?? $s;
+        // 2) URL เปล่า
+        $s = preg_replace('~(https?://[^\s<\x01]+[^\s<.,;:!?)\]"\'\x01])~u', '<a href="$1" rel="noopener" target="_blank">$1</a>', $s) ?? $s;
+        return preg_replace_callback("~\x01(\d+)\x02~", fn($m) => $named[(int) $m[1]], $s) ?? $s;
+    };
     foreach ($blocks as $b) {
         $lines = explode("\n", $b);
         if (str_starts_with($b, '## ')) {
