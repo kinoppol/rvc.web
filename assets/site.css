@@ -92,6 +92,43 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .curtain .line{height:2px;width:120px;margin:14px auto 12px;background:var(--gold);transform-origin:center;animation:draw .8s cubic-bezier(.2,.7,.2,1) .8s both}
 .curtain .en{font-size:.8125rem;letter-spacing:.18em;text-transform:uppercase;color:var(--soft);animation:fadeIn .6s ease 1s both}
 
+/* ส่วนบนหน้าแรกแบบสไลด์: ฉากเปิด → ภาพสไลด์จากระบบจัดการ (เลื่อนเปลี่ยนอัตโนมัติ) */
+.hero-track{display:grid;position:relative}
+.hero-slide{grid-area:1/1;min-width:0;opacity:0;visibility:hidden;transition:opacity .9s ease,visibility 0s linear .9s}
+.hero-slide.is-on{opacity:1;visibility:visible;transition:opacity .9s ease}
+.hero-slide.img{position:relative;overflow:hidden;background:var(--navy2)}
+.hero-slide .bg{position:absolute;inset:-40px;background:center/cover no-repeat;filter:blur(28px) brightness(.5) saturate(1.2);transform:scale(1.08)}
+.hero-slide img,.hero-slide .hs-link{position:absolute;inset:0;width:100%;height:100%}
+.hero-slide img{object-fit:contain;transform-origin:center}
+.hero-slide.img.is-on img{animation:kenburns 9s ease-out both}
+.hero-slide .hs-link:focus-visible{outline:3px solid var(--gold);outline-offset:-6px}
+@keyframes kenburns{from{transform:scale(1.06)}to{transform:scale(1)}}
+.hero-ctl{position:absolute;inset:0;z-index:3;pointer-events:none}
+.hero-ctl button{pointer-events:auto;cursor:pointer;font:inherit}
+.hc-arrow{position:absolute;top:50%;margin-top:-26px;width:52px;height:52px;display:none;place-items:center;border-radius:50%;border:1px solid rgba(255,255,255,.28);background:rgba(7,29,61,.45);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:background .2s,opacity .2s;opacity:.75}
+.hc-arrow.prev{left:20px}.hc-arrow.next{right:20px}
+.hero:hover .hc-arrow,.hc-arrow:focus-visible{opacity:1}
+.hc-arrow:hover{background:rgba(7,29,61,.75)}
+@media (min-width:1400px){.hc-arrow{display:grid}}
+.hc-bar{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;padding:4px 8px;border-radius:999px;background:rgba(7,29,61,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.hc-play{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#fff}
+.hc-play .i-play{display:none}
+.hero.paused .hc-play .i-play{display:inline}.hero.paused .hc-play .i-pause{display:none}
+.hc-dot{width:28px;height:32px;display:grid;place-items:center;border:0;background:transparent;padding:0}
+.hc-dot span{position:relative;display:block;width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.5);overflow:hidden;transition:width .3s ease,background .3s}
+.hc-dot:hover span{background:rgba(255,255,255,.85)}
+.hc-dot.on{width:44px}
+.hc-dot.on span{width:32px;background:rgba(255,255,255,.35)}
+.hc-dot.on span::after{content:"";position:absolute;inset:0;background:var(--gold);transform-origin:left;transform:scaleX(0);animation:hcfill var(--hc-dur,6s) linear var(--hc-delay,0s) forwards}
+.hero.paused .hc-dot.on span::after{animation-play-state:paused}
+.hc-play:focus-visible,.hc-dot:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;border-radius:999px}
+@keyframes hcfill{to{transform:scaleX(1)}}
+.hero.has-slides .hero-text{padding-bottom:88px}
+.hero.fit .hero-track{overflow:hidden;transition:height .6s cubic-bezier(.2,.7,.2,1)}
+.hero.fit .hero-slide img,.hero.fit .hero-slide .hs-link{inset:0 0 56px 0;height:auto}
+.hero.fit .hc-bar{bottom:10px}
+.hero-slide .hs-link img{inset:0;height:100%}
+
 /* ประกาศ */
 .notice{border-bottom:1px solid var(--line);background:#fff}
 .notice .wrap{display:flex;align-items:stretch;gap:20px;min-height:56px;flex-wrap:wrap}

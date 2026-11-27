@@ -16,6 +16,7 @@ $deptCount = array_sum(array_map('count', $groups));
 $director = Settings::get('director_name', '[ชื่อ–สกุล]');
 $applyUrl = Settings::get('apply_url') ?: page_url('curriculum');
 $arches = [['biz', '68%', '.3s'], ['home', '90%', '.45s'], ['tour', '78%', '.6s'], ['it', '100%', '.75s']];
+$slides = active_slides();
 
 $pageTitle  = '';
 $nav        = 'home';
@@ -23,7 +24,9 @@ $popupWhere = 'home';
 require BASE_PATH . '/app/views/header.php';
 ?>
 <script>/* แสดงฉากเปิดตราวิทยาลัยครั้งแรกที่เข้าเว็บในแต่ละรอบ */try{if(sessionStorage.getItem('rvc-intro'))document.documentElement.classList.add('no-intro');else sessionStorage.setItem('rvc-intro','1')}catch(e){}</script>
-<section class="hero">
+<section class="hero<?= $slides ? ' has-slides' : '' ?>"<?= $slides ? ' aria-roledescription="carousel" aria-label="ภาพเด่นหน้าแรก"' : '' ?>>
+  <div class="hero-track" id="hero-track">
+  <div class="hero-slide is-on" data-slide="0"<?= $slides ? ' role="group" aria-roledescription="slide" aria-label="1 จาก ' . (count($slides) + 1) . '"' : '' ?>>
   <div class="wrap hero-in">
     <div class="hero-text">
       <div class="aff"><?= e(Settings::get('affiliation')) ?></div>
@@ -38,6 +41,26 @@ require BASE_PATH . '/app/views/header.php';
     <div class="arches" aria-hidden="true">
       <?php foreach ($arches as [$g, $h, $d]): ?><div style="height:<?= $h ?>;background:<?= e(unit_group($g)['color']) ?>;--ad:<?= $d ?>"></div><?php endforeach; ?>
     </div>
+  </div>
+  </div>
+  <?php foreach ($slides as $i => $sl): $src = upload_url($sl['image']); ?>
+  <div class="hero-slide img" data-slide="<?= $i + 1 ?>" role="group" aria-roledescription="slide" aria-label="<?= $i + 2 ?> จาก <?= count($slides) + 1 ?>" aria-hidden="true">
+    <span class="bg" style="background-image:url(<?= e($src) ?>)"></span>
+    <?php if ($sl['link_url'] !== ''): ?><a class="hs-link" href="<?= e($sl['link_url']) ?>" tabindex="-1"><?php endif; ?>
+    <img src="<?= e($src) ?>" alt="<?= e($sl['title']) ?>" loading="lazy" decoding="async">
+    <?php if ($sl['link_url'] !== ''): ?></a><?php endif; ?>
+  </div>
+  <?php endforeach; ?>
+  <?php if ($slides): ?>
+  <div class="hero-ctl">
+    <button type="button" class="hc-arrow prev" data-hero="prev" aria-label="ภาพก่อนหน้า"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button type="button" class="hc-arrow next" data-hero="next" aria-label="ภาพถัดไป"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    <div class="hc-bar">
+      <button type="button" class="hc-play" data-hero="pause" aria-label="หยุดเลื่อนอัตโนมัติ"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path class="i-pause" d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor"/><path class="i-play" d="M8 5l11 7-11 7z" fill="currentColor"/></svg></button>
+      <?php for ($i = 0; $i <= count($slides); $i++): ?><button type="button" class="hc-dot<?= $i === 0 ? ' on' : '' ?>" data-go="<?= $i ?>" aria-label="<?= $i === 0 ? 'ฉากเปิด' : e($slides[$i - 1]['title']) ?>"<?= $i === 0 ? ' aria-current="true"' : '' ?>><span></span></button><?php endfor; ?>
+    </div>
+  </div>
+  <?php endif; ?>
   </div>
   <div class="groupbar"><div class="wrap">
     <?php foreach ($groups as $key => $depts): $g = unit_group($key); ?>

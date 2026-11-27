@@ -176,4 +176,123 @@
       }
     }).catch(function () { skDone(frame); note.textContent = 'แสดงเอกสารในหน้านี้ไม่ได้ — กด "เปิดในแท็บใหม่" เพื่อดูหรือดาวน์โหลด'; });
   });
+  /* ---------- ส่วนบนหน้าแรกแบบสไลด์ ---------- */
+  var hero = document.querySelector('.hero.has-slides');
+  if (hero) (function () {
+    var slides = [].slice.call(hero.querySelectorAll('.hero-slide'));
+    var dots = [].slice.call(hero.querySelectorAll('.hc-dot'));
+    var playBtn = hero.querySelector('.hc-play');
+    var DUR = 6000, cur = 0, timer = null, left = DUR, started = 0;
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var userPaused = reduce, hoverPaused = false, focusPaused = false, offscreen = false;
+    var track = hero.querySelector('.hero-track');
+    var narrow = window.matchMedia ? matchMedia('(max-width: 760px)') : { matches: false };
+    // รอบแรกรอฉากเปิดตราวิทยาลัยจบก่อน
+    var intro = document.documentElement.classList.contains('no-intro') || reduce ? 0 : 2300;
+    left = DUR + intro;
+    hero.style.setProperty('--hc-dur', DUR + 'ms');
+    hero.style.setProperty('--hc-delay', intro + 'ms');
+
+    function preload(n) {
+      var im = slides[(n + slides.length) % slides.length].querySelector('img');
+      if (im && im.loading === 'lazy') im.loading = 'eager';
+    }
+    function setState(el, on) {
+      el.classList.toggle('is-on', on);
+      if (el.getAttribute('data-slide') !== '0' || slides.length > 1) el.setAttribute('aria-hidden', on ? 'false' : 'true');
+      if ('inert' in el) el.inert = !on;
+      var a = el.querySelector('.hs-link'); if (a) a.tabIndex = on ? 0 : -1;
+    }
+    function replayIntro() {
+      hero.style.setProperty('--intro', '0s');
+      slides[0].querySelectorAll('.aff,.rule,h1,.lead,.cta,.arches div').forEach(function (el) {
+        el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+      });
+    }
+    function go(n) {
+      n = (n + slides.length) % slides.length;
+      if (n === cur) return;
+      setState(slides[cur], false);
+      setState(slides[n], true);
+      if (n === 0) replayIntro();
+      dots.forEach(function (d, i) { d.classList.toggle('on', i === n); if (i === n) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
+      hero.style.setProperty('--hc-delay', '0s');
+      cur = n; left = DUR;
+      preload(n + 1);
+      fit();
+      schedule();
+    }
+    // จอแคบ: ปรับความสูงตามสไลด์ที่แสดง (ภาพแนวนอนจะไม่ลอยอยู่กลางพื้นที่สูง ๆ) + เว้นที่ให้ปุ่มควบคุมด้านล่าง
+    function fit() {
+      if (!narrow.matches) { hero.classList.remove('fit'); track.style.height = ''; return; }
+      hero.classList.add('fit');
+      var el = slides[cur], h;
+      if (cur === 0) h = el.firstElementChild.offsetHeight;
+      else {
+        var im = el.querySelector('img'), r = im && im.naturalWidth ? im.naturalWidth / im.naturalHeight : 1920 / 710;
+        h = Math.round(track.clientWidth / r) + 56;
+      }
+      track.style.height = h + 'px';
+    }
+    slides.forEach(function (el) { var im = el.querySelector('img'); if (im) im.addEventListener('load', function () { if (slides[cur] === el) fit(); }); });
+    window.addEventListener('resize', fit);
+    function paused() { return userPaused || hoverPaused || focusPaused || offscreen || document.hidden; }
+    function schedule() {
+      clearTimeout(timer);
+      hero.classList.toggle('paused', paused());
+      if (paused()) return;
+      started = Date.now();
+      timer = setTimeout(function () { go(cur + 1); }, left);
+    }
+    function hold() {   // หยุดชั่วคราว: จำเวลาที่เหลือไว้
+      if (timer && !hero.classList.contains('paused')) left = Math.max(400, left - (Date.now() - started));
+      schedule();
+    }
+    slides.forEach(function (el, i) { setState(el, i === 0); });
+    hero.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-hero],[data-go]');
+      if (!b) return;
+      if (b.hasAttribute('data-go')) go(parseInt(b.getAttribute('data-go'), 10));
+      else if (b.getAttribute('data-hero') === 'prev') go(cur - 1);
+      else if (b.getAttribute('data-hero') === 'next') go(cur + 1);
+      else {
+        userPaused = !userPaused;
+        playBtn.setAttribute('aria-label', userPaused ? 'เล่นสไลด์อัตโนมัติ' : 'หยุดเลื่อนอัตโนมัติ');
+        if (!userPaused) left = Math.min(left, DUR);
+        hold();
+      }
+    });
+    if (userPaused) playBtn.setAttribute('aria-label', 'เล่นสไลด์อัตโนมัติ');
+    hero.addEventListener('mouseenter', function () { hoverPaused = true; hold(); });
+    hero.addEventListener('mouseleave', function () { hoverPaused = false; hold(); });
+    hero.addEventListener('focusin', function (e) {   // หยุดเฉพาะเมื่อใช้คีย์บอร์ด (คลิกเมาส์ไม่ต้องหยุดค้าง)
+      var kb = true; try { kb = e.target.matches(':focus-visible'); } catch (x) { /* เบราว์เซอร์เก่า */ }
+      if (kb) { focusPaused = true; hold(); }
+    });
+    hero.addEventListener('focusout', function (e) { if (!hero.contains(e.relatedTarget)) { focusPaused = false; hold(); } });
+    document.addEventListener('visibilitychange', hold);
+    hero.addEventListener('keydown', function (e) {
+      if (e.target.closest && e.target.closest('.hero-ctl')) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); go(cur + 1); }
+      }
+    });
+    // หยุดเมื่อเลื่อนพ้นจอ — ไม่เปลี่ยนสไลด์ (และความสูงบนจอแคบ) ขณะผู้ใช้อ่านเนื้อหาด้านล่าง
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) { offscreen = !es[0].isIntersecting; hold(); }, { threshold: 0.35 }).observe(track);
+    }
+    // ปัดซ้าย/ขวาบนจอสัมผัส
+    var sx = null, sy = 0;
+    track.style.touchAction = 'pan-y';
+    track.addEventListener('pointerdown', function (e) { if (e.pointerType !== 'mouse') { sx = e.clientX; sy = e.clientY; } });
+    track.addEventListener('pointerup', function (e) {
+      if (sx === null) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(cur + (dx < 0 ? 1 : -1));
+    });
+    track.addEventListener('pointercancel', function () { sx = null; });
+    preload(1);
+    fit();
+    schedule();
+  })();
 })();

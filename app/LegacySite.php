@@ -612,6 +612,56 @@ final class LegacySite
     }
 
     /** รายการที่นำเข้าแล้ว [ref => news id] */
+    /**
+     * ภาพสไลด์ที่เปิดใช้อยู่บนเว็บเดิม (API: /slide?status=1)
+     * @return list<array{id:int, title:string, image:string, date:?string}>
+     */
+    public static function slides(): array
+    {
+        $rows = self::api('slide?status=1', 120);
+        $out = [];
+        foreach (array_is_list($rows) ? $rows : [] as $r) {
+            $img = trim((string) ($r['thumbnail'] ?? ''));
+            if (!empty($r['slide_id']) && preg_match('~^https?://~i', $img)) {
+                $ts = !empty($r['dt']) ? strtotime((string) $r['dt']) : false;
+                $out[] = ['id' => (int) $r['slide_id'], 'title' => trim((string) ($r['slide'] ?? '')) ?: 'ภาพสไลด์', 'image' => $img, 'date' => $ts ? date('Y-m-d H:i:s', $ts) : null];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * นำเข้าภาพสไลด์จากเว็บเดิม (ทำสำเนารูปลง uploads/legacy/) — ข้ามรายการที่เคยนำเข้าแล้ว
+     * เรียงตามลำดับเดิมของเว็บเดิม (ใหม่ก่อน) ต่อท้ายสไลด์ที่มีอยู่
+     * @return array{added:int, skipped:int, failed:list<string>}
+     */
+    public static function importSlides(?int $userId): array
+    {
+        $done = array_flip(array_column(Database::all('SELECT source_ref FROM slides WHERE source_ref IS NOT NULL'), 'source_ref'));
+        $sort = (int) Database::value('SELECT COALESCE(MAX(sort), 0) FROM slides');
+        $added = $skipped = 0;
+        $failed = [];
+        foreach (self::slides() as $s) {
+            $ref = 'slide:' . $s['id'];
+            if (isset($done[$ref])) {
+                $skipped++;
+                continue;
+            }
+            try {
+                $path = self::mirrorFile($s['image'], true);
+            } catch (Throwable $ex) {
+                $failed[] = $s['title'] . ' — ' . $ex->getMessage();
+                continue;
+            }
+            Database::insert('slides', [
+                'title' => mb_substr($s['title'], 0, 255), 'image' => $path, 'sort' => ++$sort, 'is_enabled' => 1,
+                'source_ref' => $ref, 'created_by' => $userId,
+            ]);
+            $added++;
+        }
+        return compact('added', 'skipped', 'failed');
+    }
+
     public static function importedRefs(): array
     {
         try {

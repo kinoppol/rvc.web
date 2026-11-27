@@ -14,6 +14,7 @@ const ADMIN_ICONS = [
     'news' => 'M4 5h13v14H4zM17 8h3v11H17M7 9h7M7 13h7',
     'page' => 'M6 3h9l4 4v14H6zM14 3v5h5',
     'pop'  => 'M4 4h16v12H8l-4 4z',
+    'slide' => 'M3 5h18v12H3zM8 21h8M7 13l3-3 3 3 2-2 3 3',
     'unit' => 'M12 3v5M5 13V9h14v4M3 13h4v5H3zM10 13h4v5h-4zM17 13h4v5h-4z',
     'user' => 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6',
     'set'  => 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12h2M3 12h2M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4',
@@ -31,6 +32,7 @@ const ADMIN_MENU = [
     ['news', 'ข่าวและประกาศ', 'news', 'news.php', 'เนื้อหา', false],
     ['pages', 'หน้าเว็บ', 'page', 'pages.php', null, true],
     ['popups', 'ป๊อปอัพ', 'pop', 'popups.php', null, false],
+    ['slides', 'ภาพสไลด์หน้าแรก', 'slide', 'slides.php', null, true],
     ['units', 'เว็บไซต์ย่อยหน่วยงาน', 'unit', 'units.php', 'โครงสร้าง', true],
     ['users', 'ผู้ใช้และสิทธิ์', 'user', 'users.php', 'ผู้ดูแลระบบ', true],
     ['settings', 'ตั้งค่าเว็บไซต์', 'set', 'settings.php', null, true],
@@ -70,7 +72,7 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=5">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=6">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>

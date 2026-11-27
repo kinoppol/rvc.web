@@ -256,3 +256,26 @@ function news_cover_attr(array $n, string $tint = ''): string
     $pdf = news_pdfs($n)[0]['path'] ?? null;
     return ' data-doc' . ($pdf ? ' data-sk data-pdf="' . e(url($pdf)) . '"' : '') . ($bg !== '' ? ' style="' . $bg . '"' : '');
 }
+
+/** ภาพสไลด์ที่แสดงอยู่ตอนนี้ (เปิดใช้ และอยู่ในช่วงเวลาที่กำหนด ถ้ามี) */
+function active_slides(): array
+{
+    try {
+        return Database::all('SELECT * FROM slides WHERE is_enabled = 1
+                                AND (start_at IS NULL OR start_at <= NOW()) AND (end_at IS NULL OR end_at >= NOW())
+                              ORDER BY sort, id LIMIT 12');
+    } catch (Throwable) {
+        return [];   // ยังไม่ได้รัน migration
+    }
+}
+
+function slide_state(array $s): array
+{
+    $now = time();
+    return match (true) {
+        !$s['is_enabled'] => ['ปิดใช้งาน', '#e9eef6', '#4a5a74'],
+        $s['end_at'] !== null && strtotime($s['end_at']) < $now => ['หมดเวลาแสดง', '#fbe5e3', '#b42318'],
+        $s['start_at'] !== null && strtotime($s['start_at']) > $now => ['ตั้งเวลาไว้', '#fcefd9', '#9a5800'],
+        default => ['กำลังแสดง', '#e2f3e8', '#1d7a3e'],
+    };
+}

@@ -238,3 +238,13 @@ body.ai-on .main{padding-right:472px}
 .agent-note{padding:0 12px 8px;font-size:11.5px;color:var(--mute);text-align:center}
 @media (max-width:600px){.agent{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100vh - 16px)}.agent-fab{right:12px;bottom:12px}.agent-fab span{display:none}.agent-fab{padding:0 15px}}
 @media (prefers-reduced-motion:reduce){.agent,.agent-typing span{animation:none}}
+
+/* ภาพสไลด์หน้าแรก */
+.slide-pv{aspect-ratio:1920/710;border-radius:6px;background:#e9eef6 center/cover no-repeat;display:grid;place-items:center;color:var(--mute);font-size:14px;border:1px solid var(--line)}
+.slide-row{display:flex;align-items:center;gap:14px}
+.slide-th{flex:none;width:150px;aspect-ratio:1920/710;border-radius:4px;background:#e9eef6 center/cover no-repeat;border:1px solid var(--line2)}
+.slide-th.intro{display:grid;place-items:center;background:var(--navy);color:#f2c14e;font-size:12px;font-weight:600}
+.ord{display:flex;flex-direction:column;gap:2px}
+.ordbtn{width:30px;height:24px;border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--mute);font-size:10px;cursor:pointer}
+.ordbtn:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+.ordbtn:disabled{opacity:.35;cursor:default}
