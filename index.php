@@ -15,7 +15,7 @@ $gallery = latest_news(5, 'activity', null, true);
 $deptCount = array_sum(array_map('count', $groups));
 $director = Settings::get('director_name', '[ชื่อ–สกุล]');
 $applyUrl = Settings::get('apply_url') ?: page_url('curriculum');
-$arches = [['biz', '68%', '.3s'], ['home', '90%', '.45s'], ['tour', '78%', '.6s'], ['it', '100%', '.75s']];
+$arches = require BASE_PATH . '/app/views/roiet_symbols.php';
 $slides = active_slides();
 
 $pageTitle  = '';
@@ -38,8 +38,13 @@ require BASE_PATH . '/app/views/header.php';
         <a class="btn-outline" href="<?= e(page_url('about')) ?>">รู้จักวิทยาลัย</a>
       </div>
     </div>
-    <div class="arches" aria-hidden="true">
-      <?php foreach ($arches as [$g, $h, $d]): ?><div style="height:<?= $h ?>;background:<?= e(unit_group($g)['color']) ?>;--ad:<?= $d ?>"></div><?php endforeach; ?>
+    <div class="arches" role="img" aria-label="สัญลักษณ์จังหวัดร้อยเอ็ด: <?= e(implode(' ', array_map(fn($a) => strip_tags($a['label']), $arches))) ?>">
+      <?php foreach ($arches as $a): $color = unit_group($a['group'])['color']; ?>
+        <div style="height:<?= $a['height'] ?>;background:<?= e($color) ?>;--arch:<?= e($color) ?>;--ad:<?= $a['delay'] ?>" aria-hidden="true">
+          <svg viewBox="<?= $a['view'] ?>" preserveAspectRatio="xMidYMax meet" focusable="false"><?= $a['art'] ?></svg>
+          <span><?= $a['label'] ?></span>
+        </div>
+      <?php endforeach; ?>
     </div>
   </div>
   </div>
