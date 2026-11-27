@@ -25,6 +25,54 @@ if (is_post()) {
     session_write_close();
     $act = input('act');
     $msgs = [];
+    if ($act === 'import_batch') {   // นำเข้าทั้งหมด: เรียกซ้ำจาก JavaScript ครั้งละ 8 รายการ
+        header('Content-Type: application/json; charset=utf-8');
+        $skipIds = array_flip(array_map('intval', explode(',', input('skip'))));
+        $res = ['ok' => true, 'done' => 0, 'remaining' => 0, 'total' => 0, 'failed' => [], 'warnings' => []];
+        try {
+            if ($src === 'pages') {
+                $done = array_column(Database::all('SELECT id, source_ref FROM pages WHERE source_ref IS NOT NULL'), 'id', 'source_ref');
+                $todo = array_values(array_filter(LegacySite::pages(), fn($p) => !isset($done['page:' . $p]) && !isset($skipIds[crc32($p)])));
+                $res['total'] = count(LegacySite::pages());
+                foreach (array_slice($todo, 0, 5) as $path) {
+                    try {
+                        $p = LegacySite::page($path);
+                        $slug = slugify(trim(str_replace('/', '-', preg_replace('~^/(base9?|info|curriculum)/~', '', $path) ?? $path), '-')) ?: 'page';
+                        for ($base = $slug, $n = 2; Database::value('SELECT id FROM pages WHERE slug = ?', [$slug]); $n++) {
+                            $slug = $base . '-' . $n;
+                        }
+                        Database::insert('pages', ['title' => mb_substr($p['title'], 0, 255), 'slug' => $slug, 'body' => $p['text'], 'is_published' => 0, 'source_ref' => 'page:' . $path]);
+                        $res['done']++;
+                        array_push($res['warnings'], ...array_map(fn($w) => $path . ': ' . $w, $p['warnings']));
+                    } catch (Throwable $ex) {
+                        $res['failed'][] = crc32($path);
+                        $res['warnings'][] = $path . ': ' . $ex->getMessage();
+                    }
+                }
+                $res['remaining'] = max(0, count($todo) - $res['done'] - count($res['failed']));
+            } else {
+                $all  = LegacySite::list($src, '', 1, 100000)['items'];
+                $done = LegacySite::importedRefs();
+                $todo = array_values(array_filter($all, fn($i) => !isset($done[$i['ref']]) && !isset($skipIds[$i['id']])));
+                $res['total'] = count($all);
+                foreach (array_slice($todo, 0, 8) as $it) {
+                    try {
+                        $r = LegacySite::importAsNews($src, $it['id'], (int) $me['id'], input('status') === 'published');
+                        $res['done']++;
+                        array_push($res['warnings'], ...array_map(fn($w) => '#' . $it['id'] . ': ' . $w, $r['warnings']));
+                    } catch (Throwable $ex) {
+                        $res['failed'][] = $it['id'];
+                        $res['warnings'][] = '#' . $it['id'] . ' ' . str_limit($it['title'], 60) . ': ' . $ex->getMessage();
+                    }
+                }
+                $res['remaining'] = max(0, count($todo) - $res['done'] - count($res['failed']));
+            }
+        } catch (Throwable $ex) {
+            $res = ['ok' => false, 'error' => $ex->getMessage()];
+        }
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($act === 'settings') {
         session_start();
         foreach (['legacy_site_url' => LegacySite::DEFAULT_SITE, 'legacy_api_url' => LegacySite::DEFAULT_API] as $k => $def) {
@@ -133,6 +181,26 @@ admin_header('นำเข้าจากเว็บเดิม', 'legacy', '�
   <div class="stat"><div class="l">หน้าเว็บที่นำเข้าแล้ว</div><div class="v"><?= count($donePages) ?></div></div>
   <div class="stat"><div class="l">ไฟล์ที่ทำสำเนาไว้</div><div class="v"><?= (int) ($files['n'] ?? 0) ?></div><div class="small mute"><?= e(number_format(((int) ($files['b'] ?? 0)) / 1048576, 1)) ?> MB ใน uploads/legacy/</div></div>
 </div>
+<section class="card" id="bulk" style="margin-bottom:20px">
+  <h2>นำเข้าทั้งหมดอัตโนมัติ</h2>
+  <p class="hint" style="margin-top:0">นำเข้าทุกรายการที่ยังไม่ได้นำเข้า ทีละชุดจนครบ พร้อมทำสำเนารูปและไฟล์แนบ — ใช้เวลาหลายนาที (กิจกรรมมีกว่าพันรายการ) เปิดหน้านี้ค้างไว้จนเสร็จ หยุดแล้วกดเริ่มใหม่ได้ จะทำต่อจากที่ค้างไว้</p>
+  <div class="quick" style="margin-top:0">
+    <?php foreach (LegacySite::SOURCES + ['pages' => ['label' => 'หน้าเนื้อหา (ยังไม่เผยแพร่)']] as $k => $s): ?>
+      <label class="chk" style="padding:0 10px 0 0"><input type="checkbox" name="bulk_src" value="<?= e($k) ?>" checked> <?= e($s['label']) ?></label>
+    <?php endforeach; ?>
+  </div>
+  <div class="quick">
+    <label for="bulk-st" class="sr">สถานะข่าวที่นำเข้า</label>
+    <select id="bulk-st" style="width:auto"><option value="published">เผยแพร่ทันที (ใช้วันที่เดิม)</option><option value="draft">เป็นฉบับร่าง</option></select>
+    <button class="btn" type="button" id="bulk-go">เริ่มนำเข้าทั้งหมด</button>
+    <button class="btn ghost" type="button" id="bulk-stop" hidden>หยุด</button>
+  </div>
+  <div id="bulk-prog" hidden style="margin-top:14px">
+    <div style="height:10px;background:var(--line2);border-radius:999px;overflow:hidden"><div id="bulk-bar" style="height:100%;width:0;background:var(--blue);transition:width .3s"></div></div>
+    <div id="bulk-txt" class="small" style="margin-top:6px" role="status" aria-live="polite"></div>
+    <details style="margin-top:6px"><summary class="small" style="cursor:pointer">รายละเอียด / คำเตือน</summary><pre id="bulk-log" class="err" style="max-height:200px;overflow:auto;color:var(--mute)"></pre></details>
+  </div>
+</section>
 <nav class="quick" aria-label="ชนิดข้อมูล" style="margin:0 0 16px">
   <?php foreach (LegacySite::SOURCES + ['pages' => ['label' => 'หน้าเนื้อหา']] as $k => $s): ?>
     <a class="chip<?= $k === $src ? ' on' : '' ?>" style="display:inline-flex;align-items:center;text-decoration:none;<?= $k === $src ? 'background:var(--blue);border-color:var(--blue);color:#fff' : 'color:inherit' ?>" href="<?= e(url('admin/legacy.php', ['src' => $k])) ?>"><?= e($s['label']) ?></a>
@@ -214,6 +282,50 @@ admin_header('นำเข้าจากเว็บเดิม', 'legacy', '�
 </aside>
 </div>
 <script>
+(function () {
+  var go = document.getElementById('bulk-go'), stop = document.getElementById('bulk-stop');
+  var bar = document.getElementById('bulk-bar'), txt = document.getElementById('bulk-txt'), log = document.getElementById('bulk-log');
+  var csrf = <?= json_encode(Csrf::token()) ?>, endpoint = <?= json_encode(url('admin/legacy.php')) ?>;
+  var labels = <?= json_encode(array_map(fn($s) => $s['label'], LegacySite::SOURCES) + ['pages' => 'หน้าเนื้อหา'], JSON_UNESCAPED_UNICODE) ?>;
+  var running = false, imported = 0;
+  window.addEventListener('beforeunload', function (e) { if (running) { e.preventDefault(); e.returnValue = ''; } });
+  stop.addEventListener('click', function () { running = false; txt.textContent += ' — กำลังหยุดหลังชุดนี้…'; });
+  go.addEventListener('click', function () {
+    var srcs = [].slice.call(document.querySelectorAll('input[name=bulk_src]:checked')).map(function (c) { return c.value; });
+    if (!srcs.length) return;
+    running = true; imported = 0; go.hidden = true; stop.hidden = false;
+    document.getElementById('bulk-prog').hidden = false; log.textContent = '';
+    next(srcs, 0, []);
+  });
+  function finish(msg) {
+    running = false; go.hidden = false; stop.hidden = true;
+    txt.textContent = msg + ' · นำเข้ารอบนี้ ' + imported + ' รายการ';
+  }
+  function next(srcs, i, skip) {
+    if (!running) return finish('หยุดแล้ว');
+    if (i >= srcs.length) { bar.style.width = '100%'; return finish('เสร็จแล้ว ✓ — โหลดหน้าใหม่เพื่อดูสถานะ'); }
+    var fd = new FormData();
+    fd.append('_csrf', csrf); fd.append('act', 'import_batch'); fd.append('src', srcs[i]);
+    fd.append('status', document.getElementById('bulk-st').value); fd.append('skip', skip.join(','));
+    fetch(endpoint, { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) throw new Error(d.error || 'เกิดข้อผิดพลาด');
+        imported += d.done;
+        skip = skip.concat(d.failed);
+        if (d.warnings.length) log.textContent += d.warnings.join('\n') + '\n';
+        var left = d.remaining, total = d.total || 1;
+        bar.style.width = Math.round((total - left) / total * 100) + '%';
+        txt.textContent = labels[srcs[i]] + ': เหลือ ' + left + ' จาก ' + d.total + ' รายการ (' + (i + 1) + '/' + srcs.length + ')';
+        if (left > 0 && (d.done > 0 || d.failed.length > 0)) next(srcs, i, skip);
+        else next(srcs, i + 1, []);
+      })
+      .catch(function (e) {
+        log.textContent += labels[srcs[i]] + ': ' + e.message + ' — ลองใหม่ใน 5 วินาที\n';
+        setTimeout(function () { next(srcs, i, skip); }, 5000);
+      });
+  }
+})();
 document.querySelectorAll('[data-all]').forEach(function (a) {
   a.addEventListener('change', function () {
     a.closest('table').querySelectorAll('tbody input[type=checkbox]:not(:disabled)').forEach(function (c) { c.checked = a.checked; });
