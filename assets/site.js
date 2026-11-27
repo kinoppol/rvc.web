@@ -60,7 +60,7 @@
     el.classList.add('sk-done');
     setTimeout(function () { el.removeAttribute('data-sk'); el.classList.remove('sk-done'); }, 450);
   }
-  document.querySelectorAll('[data-sk]').forEach(function (el) {
+  function skInit(root) { root.querySelectorAll('[data-sk]').forEach(function (el) {
     if (el.hasAttribute('data-pdf') || el.hasAttribute('data-pdf-view')) return;   // ส่วน PDF จัดการด้านล่าง
     var src = el.tagName === 'IMG' ? el.currentSrc || el.src : (/url\(["']?([^"')]+)["']?\)/.exec(el.style.backgroundImage) || [])[1];
     if (!src) { skDone(el); return; }
@@ -70,7 +70,8 @@
     im.addEventListener('error', function () { skDone(el); });
     if (im !== el) im.src = src;
     setTimeout(function () { skDone(el); }, 15000);   // ไม่ค้างตลอดไปถ้าเครือข่ายช้ามาก
-  });
+  }); }
+  skInit(document);
 
   /* ---------- เอกสาร PDF: ภาพหน้าปกจากหน้าแรก + กรอบแสดงเอกสาร ---------- */
   var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -104,13 +105,16 @@
   }
 
   // รูปย่อข่าว: วาดหน้าแรกของ PDF เมื่อเลื่อนมาใกล้ (ทีละ 2 ไฟล์) · จำผลไว้ในแท็บนี้
-  var thumbs = [].slice.call(document.querySelectorAll('[data-pdf]'));
-  if (thumbs.length) {
-    var ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  var ss, queue, running, show, next, want, io;
+  function thumbsInit(root) {
+    var thumbs = [].slice.call(root.querySelectorAll('[data-pdf]'));
+    if (!thumbs.length) return;
+    if (ss) { thumbs.forEach(function (el) { io ? io.observe(el) : want(el); }); return; }
+    ss = { get: function (k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
                set: function (k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* เต็ม */ } } };
-    var queue = [], running = 0;
-    var show = function (el, src) { el.style.backgroundImage = 'url(' + src + ')'; el.classList.add('pdf-cover'); el.removeAttribute('data-doc'); skDone(el); };
-    var next = function () {
+    queue = []; running = 0;
+    show = function (el, src) { el.style.backgroundImage = 'url(' + src + ')'; el.classList.add('pdf-cover'); el.removeAttribute('data-doc'); skDone(el); };
+    next = function () {
       if (running >= 2 || !queue.length) return;
       var el = queue.shift(), url = el.getAttribute('data-pdf');
       running++;
@@ -121,14 +125,14 @@
         .catch(function () { skDone(el); /* เปิดไฟล์ไม่ได้ — คงภาพสัญลักษณ์เอกสารไว้ */ })
         .then(function () { running--; next(); });
     };
-    var want = function (el) {
+    want = function (el) {
       var w = Math.round(Math.min(900, Math.max(240, el.clientWidth * (window.devicePixelRatio || 1))));
       var hit = ss.get('pdfthumb:' + el.getAttribute('data-pdf') + ':' + w);
       if (hit) { show(el, hit); return; }
       queue.push(el); next();
     };
     if ('IntersectionObserver' in window) {
-      var io = new IntersectionObserver(function (es) {
+      io = new IntersectionObserver(function (es) {
         es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } });
       }, { rootMargin: '300px' });
       thumbs.forEach(function (el) { io.observe(el); });
@@ -136,6 +140,7 @@
       thumbs.forEach(want);
     }
   }
+  thumbsInit(document);
 
   // กรอบแสดง PDF ในหน้าอ่านข่าว
   document.querySelectorAll('.pdfv').forEach(function (box) {
@@ -294,5 +299,87 @@
     preload(1);
     fit();
     schedule();
+  })();
+  /* ---------- แท็บหมวดข่าวหน้าแรก: เปลี่ยนเนื้อหาในที่เดิม + เลื่อนนุ่ม ๆ ไม่โหลดทั้งหน้า ---------- */
+  (function () {
+    var sec = document.getElementById('news');
+    if (!sec || !window.fetch || !window.DOMParser || !history.pushState) return;
+    var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var busy = null, anim = 0;
+    // เลื่อนหน้าแบบค่อย ๆ เร่ง–ค่อย ๆ หยุด ช้ากว่าค่าเริ่มต้นของเบราว์เซอร์เล็กน้อย
+    function glide(to) {
+      var from = window.pageYOffset, d = to - from;
+      cancelAnimationFrame(anim);
+      if (Math.abs(d) < 2) return;
+      if (calm) { window.scrollTo(0, to); return; }
+      var dur = Math.min(900, 500 + Math.abs(d) * 0.15), t0 = null;
+      var stop = function () { cancelAnimationFrame(anim); off(); };
+      var off = function () { ['wheel', 'touchstart', 'keydown'].forEach(function (ev) { window.removeEventListener(ev, stop); }); };
+      ['wheel', 'touchstart', 'keydown'].forEach(function (ev) { window.addEventListener(ev, stop, { passive: true }); });   // ผู้ใช้เลื่อนเอง = หยุด
+      (function step(ts) {
+        if (t0 === null) t0 = ts;
+        var p = Math.min(1, (ts - t0) / dur);
+        var k = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        window.scrollTo(0, from + d * k);
+        if (p < 1) anim = requestAnimationFrame(step); else off();
+      })(performance.now());
+    }
+    function newsTop() { return sec.getBoundingClientRect().top + window.pageYOffset - (parseFloat(getComputedStyle(sec).scrollMarginTop) || 0); }
+    function body() { return sec.querySelector('.news-lead-wrap, .empty'); }
+    function load(href, push) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      if (busy && busy.abort) busy.abort();
+      busy = ctl;
+      var old = body();
+      sec.setAttribute('aria-busy', 'true');
+      if (old) old.classList.add('nx-out');
+      // เลื่อนให้หัวข้อข่าวชิดบนแบบนุ่มนวล ระหว่างที่โหลดเนื้อหาใหม่
+      glide(newsTop());
+      return fetch(href, { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var fresh = doc.getElementById('news');
+          if (!fresh) throw new Error('no section');
+          var nb = fresh.querySelector('.news-lead-wrap, .empty');
+          var tabs = sec.querySelector('.tabs'), ntabs = fresh.querySelector('.tabs');
+          if (tabs && ntabs) tabs.innerHTML = ntabs.innerHTML;
+          var cur = body();
+          if (nb) {
+            nb = document.importNode(nb, true);
+            var wrap = sec.querySelector('.wrap');
+            wrap.style.minHeight = wrap.offsetHeight + 'px';   // กันหน้ากระตุกระหว่างสลับเนื้อหา
+            if (cur) cur.replaceWith(nb); else wrap.appendChild(nb);
+            nb.classList.add('nx-in');
+            skInit(nb); thumbsInit(nb);
+            requestAnimationFrame(function () { requestAnimationFrame(function () { nb.classList.remove('nx-in'); }); });
+            setTimeout(function () { wrap.style.minHeight = ''; }, 400);
+          }
+          if (push) history.pushState({ newsTab: 1 }, '', href);
+          sec.removeAttribute('aria-busy');
+          busy = null;
+        })
+        .catch(function (e) {
+          if (e && e.name === 'AbortError') return;
+          location.href = href;   // ผิดพลาด — กลับไปใช้การโหลดหน้าแบบปกติ
+        });
+    }
+    sec.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('.tabs a');
+      if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button) return;
+      e.preventDefault();
+      if (a.classList.contains('on')) {
+        glide(newsTop());
+        return;
+      }
+      load(a.href, true);
+    });
+    // ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์ระหว่างแท็บ
+    function catOf(u) { return new URL(u, location.href).searchParams.get('cat') || 'pr'; }
+    window.addEventListener('popstate', function () {
+      var on = sec.querySelector('.tabs a.on');
+      if (on && catOf(on.href) !== catOf(location.href)) load(location.href, false);
+    });
+    history.replaceState({ newsTab: 1 }, '', location.href);
   })();
 })();

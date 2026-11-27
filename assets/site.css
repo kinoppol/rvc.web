@@ -147,6 +147,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .tabs{display:flex;gap:24px;flex-wrap:wrap}
 .tabs a{padding:12px 0 10px;border-bottom:4px solid transparent;margin-bottom:-2px;color:var(--mute);font-weight:500;font-size:.9375rem;text-decoration:none}
 .tabs a.on{border-bottom-color:var(--navy);color:var(--navy);font-weight:600}
+.tabs a{transition:color .25s ease,border-color .25s ease}
+#news .news-lead-wrap,#news .empty{transition:opacity .35s ease,transform .35s ease}
+#news .nx-out{opacity:.35;transition-duration:.2s}
+#news .nx-in{opacity:0;transform:translateY(8px);transition:none}
 .ph:hover .cap{text-decoration:underline}
 .news-lead-wrap{display:flex;flex-wrap:wrap;gap:40px}
 .news-lead{flex:7 1 460px;min-width:0;color:var(--ink);text-decoration:none}
