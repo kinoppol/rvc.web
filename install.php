@@ -82,7 +82,8 @@ if ($installedInfo !== null) {
         <title>ตัวติดตั้งถูกล็อก</title><style>body{font-family:'IBM Plex Sans Thai',Tahoma,sans-serif;background:#f4f7fb;color:#13213a;margin:0;padding:56px 16px}
         .b{max-width:560px;margin:auto;background:#fff;border:1px solid #d5ddea;border-top:4px solid #0b2a55;border-radius:4px;padding:28px}
         a.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:3px;background:#0b2a55;color:#fff;font-weight:600;text-decoration:none}
-        code{background:#f4f7fb;border:1px solid #d5ddea;padding:1px 6px;border-radius:3px}.m{color:#4a5a74;font-size:14px;line-height:1.7}</style></head>
+        code{background:#f4f7fb;border:1px solid #d5ddea;padding:1px 6px;border-radius:3px}.m{color:#4a5a74;font-size:14px;line-height:1.7}</style>
+<link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>"></head>
         <body><div class="b"><h1 style="margin:0 0 8px;font-size:22px">🔒 ระบบติดตั้งเรียบร้อยแล้ว</h1>
         <p>ติดตั้งเมื่อ <?= e(thai_date($installedInfo['installed_at'] ?? null, 'time')) ?> · เวอร์ชัน <?= e($installedInfo['version'] ?? '-') ?></p>
         <p>การใช้ตัวติดตั้งซ้ำ (ตรวจระบบ ตั้งค่าฐานข้อมูล อัปเกรดโครงสร้าง หรือรีเซ็ตรหัสผู้ดูแล) ต้องเข้าสู่ระบบในฐานะผู้ดูแลระบบก่อน</p>
@@ -346,7 +347,7 @@ h1,h2,.hd{font-family:Anuphan,'IBM Plex Sans Thai',sans-serif;font-weight:600}
 a{color:var(--blue)}
 .top{background:var(--navy);color:#c3d0e4}
 .top .in{max-width:960px;margin:0 auto;padding:18px 16px;display:flex;align-items:center;gap:14px}
-.seal{width:44px;height:44px;border-radius:50%;border:2px solid #f2c14e;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.seal{width:44px;height:44px;border-radius:50%;object-fit:contain;display:block;flex:none}
 .top h1{margin:0;color:#fff;font-size:20px;line-height:1.3}
 .wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
 .steps{display:flex;gap:4px;margin:0 0 20px;padding:0;list-style:none;overflow-x:auto}
@@ -387,10 +388,11 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding
 .tw{overflow-x:auto}
 @media (max-width:600px){.card{padding:18px 16px}.steps li{min-width:auto}.steps .t{display:none}}
 </style>
+<link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>
 <header class="top"><div class="in">
-  <div class="seal hd">ตรา</div>
+  <img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
   <div><h1>ติดตั้งเว็บไซต์วิทยาลัย</h1>
   <div class="small">เวอร์ชัน <?= APP_VERSION ?> · PHP <?= e(PHP_VERSION) ?><?= $installedInfo !== null ? ' · ติดตั้งแล้ว — โหมดดูแลระบบ' : '' ?></div></div>
 </div></header>

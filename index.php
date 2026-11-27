@@ -44,7 +44,7 @@ require BASE_PATH . '/app/views/header.php';
     <?php endforeach; ?>
   </div></div>
   <div class="curtain" aria-hidden="true"><div style="animation:rise .8s cubic-bezier(.2,.7,.2,1) both">
-    <div class="seal hd">ตรา</div><div class="hd" style="font-size:24px;font-weight:600"><?= e(Settings::get('site_name')) ?></div></div></div>
+    <img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา"><div class="hd" style="font-size:24px;font-weight:600"><?= e(Settings::get('site_name')) ?></div></div></div>
 </section>
 
 <?php if ($notice): ?>

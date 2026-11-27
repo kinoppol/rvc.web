@@ -32,7 +32,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .site-head{position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid var(--line)}
 .head-in{min-height:80px;display:flex;align-items:center;gap:24px}
 .logo{display:flex;align-items:center;gap:14px;text-decoration:none;flex:none}
-.seal{width:52px;height:52px;border-radius:50%;border:2px solid var(--seal);display:grid;place-items:center;font-weight:600;font-size:12px;color:var(--navy);flex:none}
+.seal{width:52px;height:52px;border-radius:50%;object-fit:contain;display:block;flex:none}
 .logo-t{border-left:1px solid var(--line);padding-left:14px}
 .logo-t .hd{font-size:1.1875rem;font-weight:600;line-height:1.3;color:var(--navy)}
 .logo-t .en{font-size:.8125rem;color:var(--mute)}
@@ -74,7 +74,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .groupbar .n{font-size:1.0625rem;font-weight:600}
 .groupbar .c{font-size:.8125rem;color:#a9b9d2;margin-top:2px}
 .curtain{position:absolute;inset:0;z-index:5;background:var(--navy2);display:grid;place-items:center;animation:curtain 2.4s cubic-bezier(.2,.7,.2,1) both;pointer-events:none;text-align:center}
-.curtain .seal{width:88px;height:88px;margin:0 auto 18px;border-color:var(--gold);color:#fff}
+.curtain .seal{width:88px;height:88px;margin:0 auto 18px}
 
 /* ประกาศ */
 .notice{border-bottom:1px solid var(--line);background:#fff}

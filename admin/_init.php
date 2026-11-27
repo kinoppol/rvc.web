@@ -70,12 +70,13 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=3">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=4">
+<link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>
 <div class="shell">
 <aside class="side" id="side">
-  <div class="brand"><div class="seal hd">ตรา</div>
+  <div class="brand"><img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
     <div class="hd">ระบบจัดการเว็บไซต์<br><span><?= e(Settings::get('site_short', 'วอศ.ร้อยเอ็ด')) ?></span></div>
     <button class="menu-x" type="button" aria-label="ปิดเมนู" onclick="document.body.classList.remove('nav-open')">✕</button></div>
   <nav aria-label="เมนูระบบจัดการ">

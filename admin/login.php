@@ -32,11 +32,12 @@ if (is_post()) {
 <meta name="robots" content="noindex">
 <title>เข้าสู่ระบบ · ระบบจัดการเว็บไซต์</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=1">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=4">
+<link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body class="login">
 <main class="login-box">
-  <div class="brand"><div class="seal hd">ตรา</div><div class="hd"><?= e(Settings::get('site_name')) ?><br><span>ระบบจัดการเว็บไซต์</span></div></div>
+  <div class="brand"><img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา"><div class="hd"><?= e(Settings::get('site_name')) ?><br><span>ระบบจัดการเว็บไซต์</span></div></div>
   <form method="post" class="card">
     <h1>เข้าสู่ระบบ</h1>
     <?php if ($error): ?><div class="msg err" role="alert"><?= e($error) ?></div><?php endif; ?>

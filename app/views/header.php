@@ -33,7 +33,8 @@ $menu = [
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=2">
+<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=3">
+<link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>
 <a class="skip" href="#main">ข้ามไปเนื้อหาหลัก</a>
@@ -58,7 +59,7 @@ $menu = [
 <header class="site-head" id="top">
   <div class="wrap head-in">
     <a class="logo" href="<?= e(url()) ?>">
-      <div class="seal hd">ตรา</div>
+      <img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
       <div class="logo-t"><div class="hd"><?= e($siteName) ?></div><div class="en"><?= e(Settings::get('site_name_en')) ?></div></div>
     </a>
     <nav class="mainnav desk" aria-label="เมนูหลัก">
