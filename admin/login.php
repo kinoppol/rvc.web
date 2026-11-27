@@ -32,7 +32,7 @@ if (is_post()) {
 <meta name="robots" content="noindex">
 <title>เข้าสู่ระบบ · ระบบจัดการเว็บไซต์</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=4">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=5">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body class="login">

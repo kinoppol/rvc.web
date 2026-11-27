@@ -369,7 +369,9 @@ final class Ai
         if (is_array($text)) {   // บางรายส่งเป็นชิ้นส่วน [{type:text,text:...}]
             $text = implode('', array_map(fn($c) => is_array($c) ? (string) ($c['text'] ?? '') : (string) $c, $text));
         }
-        $text = self::cleanOutput((string) $text);
+        $text = !empty($opt['raw'])   // raw: ไม่แปลงรูปแบบข้อความ (ผู้ช่วยสั่งงานตอบเป็น JSON)
+            ? trim(preg_replace('~<think>.*?</think>~is', '', (string) $text) ?? (string) $text)
+            : self::cleanOutput((string) $text);
         if ($text === '') {
             return ['ok' => false, 'text' => '', 'error' => 'โมเดลไม่ได้ส่งข้อความกลับมา (อาจตอบเฉพาะส่วนความคิด หรือถูกตัดเพราะ max_tokens)', 'usage' => $usage];
         }

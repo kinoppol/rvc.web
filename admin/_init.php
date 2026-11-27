@@ -70,7 +70,7 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=4">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=5">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>
@@ -111,6 +111,7 @@ function admin_footer(): void
 </div>
 <script src="<?= e(url('assets/admin.js')) ?>?v=2"></script>
 <?php if (!empty($GLOBALS['_ai_panel'])): ?><script src="<?= e(url('assets/ai.js')) ?>?v=2"></script><?php endif; ?>
+<?= agent_widget() ?>
 </body>
 </html>
 <?php
@@ -158,4 +159,35 @@ function ai_button(string $kind, array $fields): string
     ];
     return '<button class="btn ghost ai-open" type="button" data-ai="' . e(json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" aria-haspopup="dialog">'
         . icon('ai', 18) . ' ผู้ช่วย AI</button>';
+}
+
+/** ปุ่มลอย "สนทนากับผู้ช่วย AI" มุมขวาล่างทุกหน้าในระบบจัดการ */
+function agent_widget(): string
+{
+    if (!Auth::user() || !ai_can_use()) {
+        return '';
+    }
+    $models = Ai::enabledModels();
+    if (!$models && !Auth::isAdmin()) {
+        return '';
+    }
+    $u = Auth::user();
+    $cfg = [
+        'endpoint' => url('admin/agent_api.php'),
+        'csrf'     => Csrf::token(),
+        'user'     => (int) $u['id'],
+        'setup'    => $models ? null : url('admin/ai.php'),
+        'models'   => array_map(fn($m) => [
+            'id' => (int) $m['id'],
+            'name' => ($m['label'] ?: $m['model_id']) . ($m['is_free'] ? ' (ฟรี)' : ''),
+            'default' => (bool) $m['is_default'],
+        ], $models),
+        'hints'    => Auth::isAdmin()
+            ? ['สรุปภาพรวมระบบตอนนี้', 'มีข่าวไหนรออนุมัติบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศวันหยุด']
+            : ['ข่าวของฉันมีอะไรบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศ'],
+    ];
+    return '<button type="button" class="agent-fab" id="agent-fab" aria-haspopup="dialog" aria-controls="agent" title="สนทนากับผู้ช่วย AI">'
+        . icon('ai', 22) . '<span>ผู้ช่วย AI</span></button>'
+        . '<section class="agent" id="agent" role="dialog" aria-label="ผู้ช่วย AI" hidden data-cfg="' . e(json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"></section>'
+        . '<script src="' . e(url('assets/agent.js')) . '?v=2"></script>';
 }
