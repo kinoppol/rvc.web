@@ -176,6 +176,7 @@ function agent_widget(): string
         return '';
     }
     $u = Auth::user();
+    $fbHint = Facebook::configured() ? 'ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต' : 'นำโพสต์ Facebook นี้เป็นข่าวฮอตอัพเดต: (วางลิงก์โพสต์)';
     $cfg = [
         'endpoint' => url('admin/agent_api.php'),
         'csrf'     => Csrf::token(),
@@ -187,8 +188,8 @@ function agent_widget(): string
             'default' => (bool) $m['is_default'],
         ], $models),
         'hints'    => Auth::isAdmin()
-            ? ['ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต', 'สรุปภาพรวมระบบตอนนี้', 'มีข่าวไหนรออนุมัติบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศวันหยุด']
-            : ['ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต', 'ข่าวของฉันมีอะไรบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศ'],
+            ? [$fbHint, 'สรุปภาพรวมระบบตอนนี้', 'มีข่าวไหนรออนุมัติบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศวันหยุด']
+            : [$fbHint, 'ข่าวของฉันมีอะไรบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศ'],
     ];
     return '<button type="button" class="agent-fab" id="agent-fab" aria-haspopup="dialog" aria-controls="agent" title="สนทนากับผู้ช่วย AI">'
         . icon('ai', 22) . '<span>ผู้ช่วย AI</span></button>'

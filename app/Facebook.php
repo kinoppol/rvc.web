@@ -8,6 +8,7 @@ declare(strict_types=1);
  *   - โทเคนเก็บแบบเข้ารหัสด้วยกุญแจเดียวกับ API key ของผู้ช่วย AI
  *   - รูปภาพทำสำเนาลง uploads/ เพราะลิงก์รูปของ Facebook หมดอายุภายในไม่กี่วัน
  *   - กันนำเข้าซ้ำด้วย news.source_ref = "fb:<post id>"
+ * ระหว่างยังไม่มีโทเคน นำเข้าได้ทีละโพสต์จากลิงก์โพสต์สาธารณะ (source_ref = "fbl:<รหัสเนื้อหา>")
  * ค่าตั้งค่า (ตาราง settings ไม่แสดงในหน้าตั้งค่าเว็บไซต์ และผู้ช่วย AI อ่าน/แก้ไม่ได้):
  *   fb_page_id, fb_token, fb_publish, fb_auto, fb_interval, fb_limit, fb_last_sync, fb_last_result
  */
@@ -66,7 +67,7 @@ final class Facebook
     {
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         $ok = parse_url($url, PHP_URL_SCHEME) === 'https'
-            && ($host === 'graph.facebook.com' || str_ends_with($host, '.fbcdn.net') || str_ends_with($host, '.facebook.com'));
+            && ($host === 'graph.facebook.com' || $host === 'fb.watch' || str_ends_with($host, '.fbcdn.net') || str_ends_with($host, '.facebook.com'));
         if (!$ok) {
             throw new RuntimeException('ไม่อนุญาตให้ดึงข้อมูลจาก ' . $host);
         }
@@ -86,12 +87,13 @@ final class Facebook
         ]);
         $res    = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $next   = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
         $err    = curl_error($ch);
         curl_close($ch);
         if ($res === false) {
             throw new RuntimeException(strlen($body) > $max ? 'ไฟล์ใหญ่เกินกำหนด' : 'เชื่อมต่อ Facebook ไม่ได้: ' . $err);
         }
-        return [$status, $body];
+        return [$status, $body, $next];
     }
 
     private static function graph(string $path, array $query = [], ?string $token = null): array
@@ -234,6 +236,197 @@ final class Facebook
         return $map;
     }
 
+    /**
+     * โพสต์ที่มีเป็นข่าวแล้ว — ทั้งที่นำเข้าผ่านโทเคน และที่เคยนำเข้าจากลิงก์โพสต์ (เทียบจากข้อความตอนต้น)
+     * @return array<string,int> post id => news id
+     */
+    public static function imported(array $posts): array
+    {
+        $map = self::importedMap(array_column($posts, 'id'));
+        $manual = null;
+        foreach ($posts as $p) {
+            $key = self::textKey($p['message']);
+            if (isset($map[$p['id']]) || mb_strlen($key) < 40) {
+                continue;
+            }
+            $manual ??= Database::all("SELECT id, body FROM news WHERE source_ref LIKE 'fbl:%' ORDER BY id DESC LIMIT 300");
+            foreach ($manual as $r) {
+                if (str_starts_with(self::textKey((string) $r['body']), $key)) {
+                    $map[$p['id']] = (int) $r['id'];
+                    break;
+                }
+            }
+        }
+        return $map;
+    }
+
+    /** ข้อความ 60 ตัวอักษรแรกแบบไม่สนช่องว่าง ใช้เทียบว่าเป็นโพสต์เดียวกัน */
+    private static function textKey(string $s): string
+    {
+        return mb_substr(preg_replace('~\s+~u', '', $s) ?? $s, 0, 60);
+    }
+
+    /* ------------------------------ นำเข้าจากลิงก์โพสต์ (ไม่ใช้โทเคน) ------------------------------ */
+
+    /** ตรวจและปรับลิงก์โพสต์ให้เป็น www.facebook.com (หรือ fb.watch) */
+    public static function cleanLink(string $url): string
+    {
+        $url = trim($url);
+        if (!preg_match('~^(?:https?://)?(?:(?:www|web|m|mbasic)\.)?(facebook\.com|fb\.watch)(/[^\s<>"]+)$~i', $url, $m)) {
+            throw new InvalidArgumentException('ต้องเป็นลิงก์โพสต์ Facebook เช่น https://www.facebook.com/share/p/…');
+        }
+        $host = strtolower($m[1]);
+        // รับเฉพาะลิงก์ของโพสต์ ไม่ใช่หน้าเพจหรือโปรไฟล์
+        if ($host === 'facebook.com' && !preg_match('~^/(?:share/|permalink\.php\?|story\.php\?|photo(?:\.php)?[/?]|watch[/?]|reel/|events/|groups/[^/]+/(?:posts|permalink)/|[^/?]+/(?:posts|videos|photos|reels)/)~i', $m[2])) {
+            throw new InvalidArgumentException('ลิงก์นี้ไม่ใช่ลิงก์ของโพสต์ — บน Facebook กด “แชร์” › “คัดลอกลิงก์” ที่โพสต์ที่ต้องการ');
+        }
+        $url ='https://' . ($host === 'facebook.com' ? 'www.' : '') . $host . $m[2];
+        // ตัดพารามิเตอร์ติดตามที่ Facebook ต่อท้ายตอนคัดลอกลิงก์
+        $url = preg_replace('~([?&])(?:mibextid|rdid|share_url|__cft__(?:\[|%5B)[^=&]*|__tn__|ref|sfnsn)=[^&#]*~i', '$1', $url) ?? $url;
+        $url = rtrim(preg_replace(['~\?&+~', '~&{2,}~'], ['?', '&'], $url) ?? $url, '?&#');
+        // วงเล็บต้องเข้ารหัส ไม่เช่นนั้นลิงก์ [ข้อความ](url) ในเนื้อข่าวจะขาด
+        return strtr($url, ['(' => '%28', ')' => '%29', '[' => '%5B', ']' => '%5D']);
+    }
+
+    /**
+     * ข้อมูลตัวอย่างลิงก์ (Open Graph) ที่ Facebook เปิดให้โพสต์สาธารณะ — อ่านครั้งละลิงก์ตามที่ผู้ใช้สั่ง
+     * ได้ชื่อเพจ ข้อความตอนต้น (มักถูกตัดท้าย) และรูปแรกของโพสต์ · แคช 30 นาที
+     * @return array{url:string, page:string, text:string, truncated:bool, image:string}
+     */
+    public static function preview(string $url): array
+    {
+        $url = self::cleanLink($url);
+        $file = BASE_PATH . '/storage/cache/fb_link_' . md5($url) . '.json';
+        if (is_file($file) && filemtime($file) > time() - 1800) {
+            $c = json_decode((string) file_get_contents($file), true);
+            if (is_array($c)) {
+                return $c;
+            }
+        }
+        $at = $url;
+        for ($hop = 0; ; $hop++) {
+            [$status, $body, $next] = self::http($at, 4 * 1048576);
+            if ($next === '' || $hop >= 3) {
+                break;
+            }
+            if (preg_match('~/(login|checkpoint)\b~', (string) parse_url($next, PHP_URL_PATH))) {
+                throw new RuntimeException('Facebook ให้เข้าสู่ระบบก่อนดูลิงก์นี้ — ตรวจว่าโพสต์ตั้งเป็นสาธารณะ หรือวางข้อความโพสต์แทน');
+            }
+            $at = $next;
+        }
+        $og = self::openGraph($body);
+        $text = trim($og['og:description'] ?? '');
+        $image = $og['og:image'] ?? '';
+        if (str_contains($image, '/t39.30808-1/')) {
+            $image = '';   // รูปโปรไฟล์ของเพจ ไม่ใช่รูปในโพสต์
+        }
+        // หน้า "เข้าสู่ระบบ" ของ Facebook (โพสต์ไม่สาธารณะ/ลิงก์ผิด) ตอบ 200 และมีคำโปรย แต่ไม่มี og:url
+        if ($status !== 200 || empty($og['og:url']) || ($text === '' && $image === '')) {
+            throw new RuntimeException('อ่านลิงก์นี้ไม่ได้ (HTTP ' . $status . ') — โพสต์อาจไม่เป็นสาธารณะ ให้วางข้อความโพสต์แทน');
+        }
+        $out = [
+            'url'       => $url,
+            'page'      => trim($og['og:title'] ?? ''),
+            'text'      => $text,
+            'truncated' => (bool) preg_match('~(\.\.\.|…)$~u', $text),
+            'image'     => $image,
+        ];
+        @mkdir(dirname($file), 0775, true);
+        @file_put_contents($file, json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE), LOCK_EX);
+        return $out;
+    }
+
+    /** @return array<string,string> แท็ก og:* ในหน้า HTML */
+    public static function openGraph(string $html): array
+    {
+        preg_match_all('~<meta\s+property="(og:[a-z_]+)"\s+content="([^"]*)"~i', $html, $m, PREG_SET_ORDER);
+        $out = [];
+        foreach ($m as [, $k, $v]) {
+            $out[strtolower($k)] ??= html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        return $out;
+    }
+
+    /**
+     * เตรียมข่าวจากลิงก์โพสต์ — ข้อความที่ผู้ใช้วางมาใช้ก่อนข้อความตัวอย่างจากลิงก์
+     * @return array{ref:string, url:string, page:string, text:string, truncated:bool, image:string, imported:?int, warning:string}
+     */
+    public static function linkDraft(string $url, string $text = ''): array
+    {
+        $url = self::cleanLink($url);
+        $text = trim(str_replace(["\r\n", "\r"], "\n", $text));
+        $warning = '';
+        try {
+            $p = self::preview($url);
+        } catch (RuntimeException $ex) {
+            if ($text === '') {
+                throw $ex;
+            }
+            $p = ['page' => '', 'text' => '', 'truncated' => false, 'image' => ''];
+            $warning = 'อ่านลิงก์ไม่ได้ จึงใช้เฉพาะข้อความที่วางมา ไม่มีรูปภาพ';
+        }
+        // กันนำเข้าซ้ำ: อ้างอิงจากเนื้อหาของโพสต์ เพราะลิงก์แชร์ของโพสต์เดียวกันมีได้หลายแบบ
+        $basis = self::textKey($p['text']) . '|' . basename((string) parse_url($p['image'], PHP_URL_PATH));
+        $ref = 'fbl:' . sha1($basis !== '|' ? $basis : $url);
+        $exist = Database::value('SELECT id FROM news WHERE source_ref = ?', [$ref]);
+        $key = self::textKey($p['text']);
+        if (!$exist && mb_strlen($key) >= 40) {   // โพสต์เดียวกันที่เคยดึงผ่านโทเคน
+            foreach (Database::all("SELECT id, body FROM news WHERE source_ref LIKE 'fb:%' ORDER BY id DESC LIMIT 300") as $r) {
+                if (str_starts_with(self::textKey((string) $r['body']), $key)) {
+                    $exist = $r['id'];
+                    break;
+                }
+            }
+        }
+        $full =$text !== '' ? $text : $p['text'];
+        if ($full === '' && $p['image'] === '') {
+            throw new RuntimeException('โพสต์นี้ไม่มีข้อความหรือรูปภาพให้นำเข้า');
+        }
+        return [
+            'ref' => $ref, 'url' => $url, 'page' => $p['page'], 'text' => $full,
+            'truncated' => $text === '' && $p['truncated'], 'image' => $p['image'],
+            'imported' => $exist ? (int) $exist : null, 'warning' => $warning,
+        ];
+    }
+
+    /** @return array{id:int, skipped:bool, warnings:list<string>} */
+    public static function importLink(array $d, ?int $authorId, string $status, ?string $title = null, ?string $date = null): array
+    {
+        if ($d['imported']) {
+            return ['id' => $d['imported'], 'skipped' => true, 'warnings' => []];
+        }
+        $warn = $d['warning'] !== '' ? [$d['warning']] : [];
+        $cover = null;
+        if ($d['image'] !== '') {
+            try {
+                $cover = self::saveImage($d['image']);
+            } catch (Throwable $ex) {
+                $warn[] = 'รูปภาพ: ' . $ex->getMessage();
+            }
+        }
+        $ts = $date ? (strtotime($date) ?: time()) : time();
+        $title = trim((string) $title) !== '' ? mb_substr(trim((string) $title), 0, 255) : self::titleFrom($d['text'], '', $ts);
+        $more = $d['truncated'] ? 'อ่านโพสต์ฉบับเต็มบน Facebook' : 'ดูโพสต์ต้นฉบับบน Facebook';
+        $plain = preg_replace('~#[\p{L}\p{M}\p{N}_]+~u', '', $d['text']) ?? $d['text'];
+        try {
+            $id = Database::insert('news', [
+                'title'        => $title,
+                'excerpt'      => mb_substr(str_limit($plain !== '' ? $plain : $title, 220), 0, 500),
+                'body'         => ltrim($d['text'] . "\n\n[" . $more . '](' . $d['url'] . ')'),
+                'cover'        => $cover,
+                'category'     => self::CATEGORY,
+                'status'       => $status,
+                'published_at' => date('Y-m-d H:i:s', $ts),
+                'author_id'    => $authorId,
+                'source_ref'   => $d['ref'],
+            ]);
+        } catch (PDOException $ex) {
+            delete_upload($cover);
+            throw $ex;
+        }
+        return ['id' => $id, 'skipped' => false, 'warnings' => $warn];
+    }
+
     /** ทำสำเนารูปจาก Facebook ลง uploads/ปี/เดือน/ (ชื่อแบบเดียวกับไฟล์อัปโหลด ลบพร้อมข่าวได้) */
     private static function saveImage(string $url): string
     {
@@ -264,8 +457,8 @@ final class Facebook
      */
     public static function import(array $p, ?int $authorId, string $status, ?string $title = null): array
     {
-        if ($exist = Database::value('SELECT id FROM news WHERE source_ref = ?', ['fb:' . $p['id']])) {
-            return ['id' => (int) $exist, 'skipped' => true, 'warnings' => []];
+        if ($exist = self::imported([$p])[$p['id']] ?? null) {
+            return ['id' => $exist, 'skipped' => true, 'warnings' => []];
         }
         $warn = [];
         $saved = [];
@@ -319,7 +512,7 @@ final class Facebook
     {
         $status ??= self::publishNow() ? 'published' : 'draft';
         $posts = self::posts($limit ?? self::limit(), true);
-        $done = self::importedMap(array_column($posts, 'id'));
+        $done = self::imported($posts);
         $added = $skipped = 0;
         $failed = $ids = [];
         foreach (array_reverse($posts) as $p) {

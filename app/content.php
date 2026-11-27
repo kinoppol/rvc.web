@@ -32,6 +32,16 @@ const POPUP_PLACEMENTS = [
 /** เงื่อนไขข่าวที่เผยแพร่แล้ว (ใช้กับ alias n) */
 const NEWS_PUBLIC = "n.status = 'published' AND n.published_at <= NOW()";
 
+/** หมวดข่าวที่แสดงบนเว็บไซต์ — ผู้ดูแลปิดกลุ่มฮอตอัพเดตได้ (ตัวข่าวยังอยู่ในรายการข่าวทั้งหมด) */
+function public_categories(): array
+{
+    $list = NEWS_CATEGORIES;
+    if (Settings::get('hot_enabled', '1') === '0') {
+        unset($list['hot']);
+    }
+    return $list;
+}
+
 function unit_group(?string $key): array
 {
     [$label, $color, $light, $tint, $icon] = UNIT_GROUPS[$key] ?? UNIT_GROUPS['org'];

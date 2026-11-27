@@ -5,7 +5,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 
-$cat = array_key_exists(input('cat'), NEWS_CATEGORIES) ? input('cat') : (latest_news(1, 'hot') ? 'hot' : 'pr');   // แท็บแรก: ฮอตอัพเดต (ถ้ามีข่าว)
+$cats = public_categories();
+$cat = array_key_exists(input('cat'), $cats) ? input('cat') : (isset($cats['hot']) && latest_news(1, 'hot') ? 'hot' : 'pr');   // แท็บแรก: ฮอตอัพเดต (ถ้าเปิดแสดงและมีข่าว)
 $news = latest_news(5, $cat);
 $lead = $news[0] ?? null;
 $rest = array_slice($news, 1);
@@ -92,7 +93,7 @@ require BASE_PATH . '/app/views/header.php';
     <div class="sec-h">
       <h2 class="hd">ข่าวสาร</h2>
       <nav class="tabs" aria-label="หมวดข่าว">
-        <?php foreach (NEWS_CATEGORIES as $k => $label): ?>
+        <?php foreach ($cats as $k => $label): ?>
           <a href="<?= e(url('', ['cat' => $k])) ?>#news" class="<?= trim(($k === $cat ? 'on' : '') . ($k === 'hot' ? ' hot' : '')) ?>" <?= $k === $cat ? 'aria-current="true"' : '' ?>><?= e($label) ?></a>
         <?php endforeach; ?>
       </nav>

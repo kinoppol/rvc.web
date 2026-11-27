@@ -5,7 +5,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 
-$cat  = array_key_exists(input('cat'), NEWS_CATEGORIES) ? input('cat') : '';
+$cats = public_categories();
+$cat  = array_key_exists(input('cat'), $cats) ? input('cat') : '';
 $q    = mb_substr(input('q'), 0, 100);
 $unit = input('u');
 $unitRow = $unit !== '' ? Database::one('SELECT * FROM units WHERE slug = ? AND is_active = 1', [$unit]) : null;
@@ -47,7 +48,7 @@ require BASE_PATH . '/app/views/header.php';
     <label for="q" style="position:absolute;left:-9999px">ค้นหาข่าว</label>
     <input id="q" type="search" name="q" value="<?= e($q) ?>" placeholder="ค้นหาข่าว">
     <label for="cat" style="position:absolute;left:-9999px">หมวด</label>
-    <select id="cat" name="cat"><option value="">ทุกหมวด</option><?php foreach (NEWS_CATEGORIES as $k => $v): ?><option value="<?= e($k) ?>" <?= $cat === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select>
+    <select id="cat" name="cat"><option value="">ทุกหมวด</option><?php foreach ($cats as $k => $v): ?><option value="<?= e($k) ?>" <?= $cat === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select>
     <button type="submit">ค้นหา</button>
   </form>
   <?php if (!$rows): ?>

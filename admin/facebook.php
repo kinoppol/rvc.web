@@ -11,6 +11,12 @@ $act = input('act');
 $back = url('admin/facebook.php');
 
 if (is_post()) {
+    if ($act === 'hot') {
+        $show = !empty($_POST['hot_enabled']);
+        Settings::set('hot_enabled', $show ? '1' : '0');
+        flash('ok', $show ? 'เปิดแสดงกลุ่มฮอตอัพเดตบนเว็บไซต์แล้ว' : 'ปิดแสดงกลุ่มฮอตอัพเดตบนเว็บไซต์แล้ว');
+        redirect($back);
+    }
     if ($act === 'save') {
         $page  = trim(input('page_id'));
         if (preg_match('~facebook\.com/(?:profile\.php\?id=(\d+)|([A-Za-z0-9.\-]+))~', $page, $m)) {
@@ -85,7 +91,8 @@ if ($ok) {
         $postErr = $ex->getMessage();
     }
 }
-$done = $posts ? Facebook::importedMap(array_column($posts, 'id')) : [];
+$done = $posts ? Facebook::imported($posts) : [];
+$hotShown = isset(public_categories()['hot']);
 $hotCount = (int) Database::value("SELECT COUNT(*) FROM news n WHERE n.category = 'hot' AND " . NEWS_PUBLIC);
 $lastAt = (int) Settings::get('fb_last_sync', '0');
 
@@ -93,7 +100,7 @@ admin_header('ข่าวจาก Facebook', 'facebook', 'ข่าวจา�
 ?>
 <div class="head">
   <div><h1>ข่าวจาก Facebook</h1>
-  <p>ดึงโพสต์จากเพจ Facebook ของวิทยาลัยมาเป็นข่าวหมวด “ฮอตอัพเดต” ซึ่งเป็นแท็บแรกของส่วนข่าวสารในหน้าแรก · ตอนนี้มีข่าวฮอตอัพเดต <?= $hotCount ?> ข่าว</p></div>
+  <p>ดึงโพสต์จากเพจ Facebook ของวิทยาลัยมาเป็นข่าวหมวด “ฮอตอัพเดต” <?= $hotShown ? 'ซึ่งเป็นแท็บแรกของส่วนข่าวสารในหน้าแรก' : '(ตอนนี้ปิดแสดงกลุ่มนี้บนเว็บไซต์)' ?> · ตอนนี้มีข่าวฮอตอัพเดต <?= $hotCount ?> ข่าว</p></div>
   <div class="acts">
     <?php if ($ok): ?>
     <form method="post"><?= Csrf::field() ?><input type="hidden" name="act" value="test"><button class="btn ghost" type="submit">ทดสอบการเชื่อมต่อ</button></form>
@@ -117,7 +124,7 @@ admin_header('ข่าวจาก Facebook', 'facebook', 'ข่าวจา�
     <section class="tbl" style="margin-top:0">
       <div class="ttl">โพสต์ล่าสุดบนเพจ</div>
       <?php if (!$ok): ?>
-        <p class="empty" style="padding:24px">ยังไม่ได้เชื่อมต่อเพจ — ตั้งค่า Page Access Token ด้านขวาก่อน<br>ระหว่างนี้ผู้ดูแลยังวางข้อความโพสต์ให้ผู้ช่วย AI สร้างเป็นข่าวฮอตอัพเดตได้</p>
+        <p class="empty" style="padding:24px">ยังไม่ได้เชื่อมต่อเพจ จึงยังแสดงรายการโพสต์และดึงอัตโนมัติไม่ได้<br>ระหว่างนี้ให้ผู้ช่วย AI นำเข้าทีละโพสต์ได้: บน Facebook กด “แชร์” › “คัดลอกลิงก์” ของโพสต์สาธารณะ<br>แล้วพิมพ์ในผู้ช่วย AI ว่า “นำโพสต์นี้เป็นข่าวฮอตอัพเดต” ตามด้วยลิงก์ (วางข้อความโพสต์ฉบับเต็มต่อท้ายได้)</p>
       <?php elseif ($postErr): ?>
         <p class="empty" style="padding:24px;color:var(--err)"><?= e($postErr) ?></p>
       <?php elseif (!$posts): ?>
@@ -151,10 +158,18 @@ admin_header('ข่าวจาก Facebook', 'facebook', 'ข่าวจา�
       </table></div>
       <?php endif; ?>
     </section>
-    <div class="hint" style="margin-top:10px">สั่งผู้ช่วย AI ได้ เช่น “ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต” — ผู้ช่วยจะเรียบเรียงหัวข้อข่าวให้ แล้วให้กดยืนยันก่อนนำเข้า</div>
+    <div class="hint" style="margin-top:10px">สั่งผู้ช่วย AI ได้ เช่น <?= $ok ? '“ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต”' : '“นำโพสต์นี้เป็นข่าวฮอตอัพเดต” แล้ววางลิงก์โพสต์' ?> — ผู้ช่วยจะเรียบเรียงหัวข้อข่าวให้ แล้วให้กดยืนยันก่อนนำเข้า<?= $ok ? '' : ' · ข้อความที่อ่านจากลิงก์มีเฉพาะตอนต้น และได้รูปแรกรูปเดียว' ?></div>
   </div>
 
   <aside class="narrow">
+    <form method="post" class="card">
+      <?= Csrf::field() ?><input type="hidden" name="act" value="hot">
+      <h2>การแสดงบนเว็บไซต์</h2>
+      <label class="chk" style="font-weight:600"><input type="checkbox" name="hot_enabled" value="1" <?= $hotShown ? 'checked' : '' ?> style="accent-color:var(--ok)"> แสดงกลุ่ม “ฮอตอัพเดต”</label>
+      <div class="hint">เมื่อปิด แท็บฮอตอัพเดตจะถูกซ่อนจากหน้าแรกและตัวกรองหน้าข่าว ข่าวในกลุ่มยังอยู่ในรายการข่าวทั้งหมดและเปิดอ่านได้</div>
+      <p style="margin:12px 0 0"><button class="btn" type="submit">บันทึกการแสดง</button></p>
+    </form>
+
     <form method="post" class="card">
       <?= Csrf::field() ?><input type="hidden" name="act" value="save">
       <h2><span class="num">1</span>การเชื่อมต่อเพจ</h2>
