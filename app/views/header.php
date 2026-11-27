@@ -46,6 +46,12 @@ $menu = [
     <span class="fs" role="group" aria-label="ขนาดตัวอักษร">
       <button type="button" data-fs="-1" aria-label="ตัวอักษรเล็กลง">ก-</button><button type="button" data-fs="0" aria-label="ตัวอักษรปกติ">ก</button><button type="button" data-fs="1" aria-label="ตัวอักษรใหญ่ขึ้น">ก+</button>
     </span>
+    <span class="sep">|</span>
+    <?php if (Auth::user()): ?>
+      <a class="ul login-link" href="<?= e(url('admin/')) ?>">ระบบจัดการ</a>
+    <?php else: ?>
+      <a class="ul login-link" href="<?= e(url('admin/login.php')) ?>">เข้าสู่ระบบ</a>
+    <?php endif; ?>
   </div>
 </div></div>
 
