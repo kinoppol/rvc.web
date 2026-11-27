@@ -188,12 +188,14 @@ admin_header('ข่าวจาก Facebook', 'facebook', 'ข่าวจา�
     <details class="card" <?= $ok ? '' : 'open' ?>>
       <summary><b>วิธีขอ Page Access Token</b></summary>
       <ol class="small" style="padding-left:18px;line-height:1.7">
-        <li>ใช้บัญชีที่เป็นผู้ดูแลเพจ เข้า <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> สร้างแอปประเภท “Business” (ไม่ต้องส่งตรวจ เพราะอ่านเพจของตนเอง)</li>
-        <li>เปิด <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> เลือกแอปนั้น เพิ่มสิทธิ์ <code>pages_show_list</code> และ <code>pages_read_engagement</code> แล้วกด Generate Access Token</li>
-        <li>ที่ช่อง “User or Page” เลือกเพจของวิทยาลัย จะได้ Page Access Token</li>
-        <li>นำไปขยายอายุที่ <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" rel="noopener">Access Token Debugger</a> → “Extend Access Token” (โทเคนเพจจากโทเคนผู้ใช้อายุยาวจะไม่หมดอายุ)</li>
-        <li>วางโทเคนในช่องด้านบนแล้วกดบันทึก</li>
+        <li>ใช้บัญชีที่เป็นผู้ดูแลเพจ เข้า <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> กด “Create App” เลือก use case “Manage everything on your Page” (หน้าจอแบบเก่าให้เลือกประเภท “Business”) ไม่ต้องส่งตรวจ เพราะอ่านเพจของตนเอง</li>
+        <li>ในการตั้งค่า use case ของแอป เพิ่มสิทธิ์ <code>pages_read_engagement</code></li>
+        <li>เปิด <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> เลือกแอปนั้น เพิ่มสิทธิ์ <code>pages_show_list</code> และ <code>pages_read_engagement</code> กด “Generate Access Token” แล้วอนุญาตเพจของวิทยาลัย</li>
+        <li>คัดลอกโทเคนไปวางใน <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" rel="noopener">Access Token Debugger</a> กด “Debug” แล้วกด “Extend Access Token” จะได้โทเคนผู้ใช้อายุยาว</li>
+        <li>กลับไป Graph API Explorer วางโทเคนอายุยาวในช่อง “Access Token” พิมพ์ <code>me/accounts</code> แล้วกด “Submit”</li>
+        <li>ในผลลัพธ์หาเพจของวิทยาลัย นำค่า <code>id</code> ใส่ช่อง “รหัสเพจ” และค่า <code>access_token</code> ใส่ช่อง “Page Access Token” ด้านบน แล้วกดบันทึก</li>
       </ol>
+      <div class="hint">ตรวจโทเคนเพจใน Access Token Debugger ช่อง “Expires” ควรเป็น “Never” (โทเคนยังถูกยกเลิกได้ เช่น เมื่อเปลี่ยนรหัสผ่านหรือถูกถอดจากผู้ดูแลเพจ) · ถ้า <code>me/accounts</code> ได้ผลว่าง แสดงว่าบัญชีไม่ได้ดูแลเพจ ยังไม่ได้อนุญาตเพจ หรือเป็นโปรไฟล์ส่วนตัวซึ่งดึงโพสต์ด้วยวิธีนี้ไม่ได้ · ชื่อปุ่มบนหน้าของ Facebook อาจเปลี่ยนได้</div>
     </details>
   </aside>
 </div>
