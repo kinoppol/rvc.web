@@ -16,7 +16,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes archUp{from{opacity:0;transform:translateY(56px)}to{opacity:1;transform:none}}
-@keyframes curtain{0%,70%{opacity:1;visibility:visible}100%{opacity:0;visibility:hidden}}
+@keyframes curtainOut{0%{clip-path:inset(0 0 0 0);visibility:visible}99%{clip-path:inset(0 0 100% 0);visibility:visible}100%{clip-path:inset(0 0 100% 0);visibility:hidden}}
+@keyframes sealIn{0%{opacity:0;transform:scale(.55) rotate(-30deg);filter:blur(6px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:none;filter:none}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(2.4)}}
+@keyframes nameIn{from{opacity:0;letter-spacing:.35em;transform:translateY(10px)}to{opacity:1;letter-spacing:0;transform:none}}
+@keyframes introOut{to{opacity:0;transform:translateY(-28px) scale(.94)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes blurRise{from{opacity:0;transform:translateY(28px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
 @keyframes pop{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
 /* แถบบน */
@@ -59,22 +65,32 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .hero{position:relative;overflow:hidden;background:var(--navy);color:#fff}
 .hero-in{position:relative;padding-top:88px;display:flex;flex-wrap:wrap;gap:40px;align-items:flex-end}
 .hero-text{flex:1 1 520px;min-width:0;padding-bottom:72px}
-.hero .aff{font-size:.9375rem;color:var(--soft);animation:rise .7s cubic-bezier(.2,.7,.2,1) .15s both}
-.hero .rule{height:2px;width:96px;margin:22px 0 26px;background:var(--gold);transform-origin:left;animation:draw 1.4s cubic-bezier(.2,.7,.2,1) .25s both}
-.hero h1{margin:0;font-size:4rem;line-height:1.22;font-weight:600;letter-spacing:-.01em;animation:rise .8s cubic-bezier(.2,.7,.2,1) .35s both}
-.hero .lead{margin:22px 0 0;max-width:30em;font-size:1.125rem;line-height:1.75;color:var(--soft);animation:rise .8s cubic-bezier(.2,.7,.2,1) .55s both}
-.hero .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px;animation:rise .8s cubic-bezier(.2,.7,.2,1) .75s both}
+.hero .aff{font-size:.9375rem;color:var(--soft);animation:rise .7s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .1s) both}
+.hero .rule{height:2px;width:96px;margin:22px 0 26px;background:var(--gold);transform-origin:left;animation:draw 1.4s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .25s) both}
+.hero h1{margin:0;font-size:4rem;line-height:1.22;font-weight:600;letter-spacing:-.01em;animation:blurRise 1s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .3s) both}
+.hero .lead{margin:22px 0 0;max-width:30em;font-size:1.125rem;line-height:1.75;color:var(--soft);animation:rise .8s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .55s) both}
+.hero .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px;animation:rise .8s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .75s) both}
 .btn-gold{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 26px;border-radius:3px;background:var(--gold);color:var(--navy2)!important;font-weight:600;font-size:1rem;text-decoration:none}
 .btn-outline{display:inline-flex;align-items:center;min-height:52px;padding:0 24px;border-radius:3px;border:1px solid rgba(255,255,255,.4);color:#fff!important;font-weight:500;font-size:1rem;text-decoration:none}
 .arches{flex:1 1 360px;height:440px;display:flex;align-items:flex-end;justify-content:center;gap:12px}
-.arches div{flex:1;border-radius:200px 200px 0 0;animation:archUp 1.5s cubic-bezier(.2,.7,.2,1) both}
+.arches div{flex:1;border-radius:200px 200px 0 0;transform-origin:bottom;animation:archUp 1.5s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + var(--ad, 0s)) both}
 .groupbar{background:var(--navy2);border-top:1px solid rgba(255,255,255,.12)}
 .groupbar .wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-.groupbar a{display:block;padding:18px 20px 20px 0;border-top:3px solid;margin-top:-1px;color:#fff;text-decoration:none}
+.groupbar a{display:block;padding:18px 20px 20px 0;border-top:3px solid;margin-top:-1px;color:#fff;text-decoration:none;animation:rise .7s cubic-bezier(.2,.7,.2,1) calc(var(--intro) + .9s) both}
+.groupbar a:nth-child(2){animation-delay:calc(var(--intro) + 1s)}.groupbar a:nth-child(3){animation-delay:calc(var(--intro) + 1.1s)}.groupbar a:nth-child(4){animation-delay:calc(var(--intro) + 1.2s)}
 .groupbar .n{font-size:1.0625rem;font-weight:600}
 .groupbar .c{font-size:.8125rem;color:#a9b9d2;margin-top:2px}
-.curtain{position:absolute;inset:0;z-index:5;background:var(--navy2);display:grid;place-items:center;animation:curtain 2.4s cubic-bezier(.2,.7,.2,1) both;pointer-events:none;text-align:center}
-.curtain .seal{width:88px;height:88px;margin:0 auto 18px}
+.hero{--intro:2.3s}
+.no-intro .hero{--intro:0s}.no-intro .curtain{display:none}
+.curtain{position:absolute;inset:0;z-index:5;background:radial-gradient(circle at 50% 45%,#0e3266 0%,var(--navy2) 65%);display:grid;place-items:center;animation:curtainOut .8s cubic-bezier(.7,0,.2,1) 2s both;pointer-events:none;text-align:center;color:#fff}
+.curtain-in{padding:0 16px;animation:introOut .5s cubic-bezier(.5,0,.75,0) 1.75s forwards}
+.curtain .seal-wrap{position:relative;width:104px;height:104px;margin:0 auto 20px}
+.curtain .seal-wrap::before,.curtain .seal-wrap::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--gold);opacity:0;animation:ring 1.3s ease-out .55s both}
+.curtain .seal-wrap::after{animation-delay:.8s}
+.curtain .seal{position:relative;width:104px;height:104px;animation:sealIn .9s cubic-bezier(.2,.7,.2,1) both}
+.curtain .name{font-size:26px;font-weight:600;line-height:1.4;animation:nameIn .9s cubic-bezier(.2,.7,.2,1) .45s both}
+.curtain .line{height:2px;width:120px;margin:14px auto 12px;background:var(--gold);transform-origin:center;animation:draw .8s cubic-bezier(.2,.7,.2,1) .8s both}
+.curtain .en{font-size:.8125rem;letter-spacing:.18em;text-transform:uppercase;color:var(--soft);animation:fadeIn .6s ease 1s both}
 
 /* ประกาศ */
 .notice{border-bottom:1px solid var(--line);background:#fff}

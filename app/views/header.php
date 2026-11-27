@@ -33,7 +33,7 @@ $menu = [
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=3">
+<link rel="stylesheet" href="<?= e(url('assets/site.css')) ?>?v=4">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>

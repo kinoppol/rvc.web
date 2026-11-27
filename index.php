@@ -22,6 +22,7 @@ $nav        = 'home';
 $popupWhere = 'home';
 require BASE_PATH . '/app/views/header.php';
 ?>
+<script>/* แสดงฉากเปิดตราวิทยาลัยครั้งแรกที่เข้าเว็บในแต่ละรอบ */try{if(sessionStorage.getItem('rvc-intro'))document.documentElement.classList.add('no-intro');else sessionStorage.setItem('rvc-intro','1')}catch(e){}</script>
 <section class="hero">
   <div class="wrap hero-in">
     <div class="hero-text">
@@ -35,7 +36,7 @@ require BASE_PATH . '/app/views/header.php';
       </div>
     </div>
     <div class="arches" aria-hidden="true">
-      <?php foreach ($arches as [$g, $h, $d]): ?><div style="height:<?= $h ?>;background:<?= e(unit_group($g)['color']) ?>;animation-delay:<?= $d ?>"></div><?php endforeach; ?>
+      <?php foreach ($arches as [$g, $h, $d]): ?><div style="height:<?= $h ?>;background:<?= e(unit_group($g)['color']) ?>;--ad:<?= $d ?>"></div><?php endforeach; ?>
     </div>
   </div>
   <div class="groupbar"><div class="wrap">
@@ -43,8 +44,11 @@ require BASE_PATH . '/app/views/header.php';
       <a class="ul" href="#depts" style="border-top-color:<?= e($g['light']) ?>"><div class="hd n"><?= e($g['label']) ?></div><div class="c"><?= count($depts) ?> แผนกวิชา</div></a>
     <?php endforeach; ?>
   </div></div>
-  <div class="curtain" aria-hidden="true"><div style="animation:rise .8s cubic-bezier(.2,.7,.2,1) both">
-    <img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา"><div class="hd" style="font-size:24px;font-weight:600"><?= e(Settings::get('site_name')) ?></div></div></div>
+  <div class="curtain" aria-hidden="true"><div class="curtain-in">
+    <div class="seal-wrap"><img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt=""></div>
+    <div class="hd name"><?= e(Settings::get('site_name')) ?></div>
+    <div class="line"></div>
+    <div class="en"><?= e(Settings::get('site_name_en')) ?></div></div></div>
 </section>
 
 <?php if ($notice): ?>
