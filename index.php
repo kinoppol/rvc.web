@@ -40,9 +40,9 @@ require BASE_PATH . '/app/views/header.php';
       </div>
     </div>
     <div class="arches" role="img" aria-label="สัญลักษณ์จังหวัดร้อยเอ็ด: <?= e(implode(' ', array_map(fn($a) => strip_tags($a['label']), $arches))) ?>">
-      <?php foreach ($arches as $a): $color = unit_group($a['group'])['color']; ?>
-        <div style="height:<?= $a['height'] ?>;background:<?= e($color) ?>;--arch:<?= e($color) ?>;--ad:<?= $a['delay'] ?>" aria-hidden="true">
-          <svg viewBox="<?= $a['view'] ?>" preserveAspectRatio="xMidYMax meet" focusable="false"><?= $a['art'] ?></svg>
+      <?php foreach ($arches as $a): ?>
+        <div style="height:<?= $a['height'] ?>;--ad:<?= $a['delay'] ?>" aria-hidden="true">
+          <img src="<?= e(url('assets/roiet/' . $a['file'])) ?>" alt="" style="object-position:<?= $a['position'] ?>" decoding="async">
           <span><?= $a['label'] ?></span>
         </div>
       <?php endforeach; ?>
@@ -72,7 +72,12 @@ require BASE_PATH . '/app/views/header.php';
     <?php foreach ($groups as $key => $depts): $g = unit_group($key); ?>
       <a class="ul" href="#depts" style="border-top-color:<?= e($g['light']) ?>"><div class="hd n"><?= e($g['label']) ?></div><div class="c"><?= count($depts) ?> แผนกวิชา</div></a>
     <?php endforeach; ?>
-  </div></div>
+  </div>
+    <p class="wrap arch-credit">ภาพจาก Wikimedia Commons (ย่อและครอบตัด):
+      <?php foreach ($arches as $i => $a): ?><?= $i ? ' · ' : '' ?><a href="<?= e($a['source']) ?>" target="_blank" rel="noopener"><?= e(strip_tags($a['label'])) ?></a> โดย <?= e($a['author']) ?>
+        (<?php if ($a['license'] === 'CC BY-SA 4.0'): ?><a href="https://creativecommons.org/licenses/by-sa/4.0/deed.th" target="_blank" rel="noopener license"><?= e($a['license']) ?></a><?php else: ?><?= e($a['license']) ?><?php endif; ?>)<?php endforeach; ?>
+    </p>
+  </div>
   <div class="curtain" aria-hidden="true"><div class="curtain-in">
     <div class="seal-wrap"><img class="seal" src="<?= e(url('assets/seal.png')) ?>" alt=""></div>
     <div class="hd name"><?= e(Settings::get('site_name')) ?></div>
