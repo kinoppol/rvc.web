@@ -24,6 +24,7 @@ require BASE_PATH . '/app/content.php';
 require BASE_PATH . '/app/Ai.php';
 require BASE_PATH . '/app/LegacySite.php';
 require BASE_PATH . '/app/Agent.php';
+require BASE_PATH . '/app/Facebook.php';
 
 $configFile = BASE_PATH . '/config/config.php';
 $config = is_file($configFile) ? require $configFile : null;

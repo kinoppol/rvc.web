@@ -326,15 +326,15 @@
     }
     function newsTop() { return sec.getBoundingClientRect().top + window.pageYOffset - (parseFloat(getComputedStyle(sec).scrollMarginTop) || 0); }
     function body() { return sec.querySelector('.news-lead-wrap, .empty'); }
-    function load(href, push) {
+    function load(href, push, quiet) {
       var ctl = window.AbortController ? new AbortController() : null;
       if (busy && busy.abort) busy.abort();
       busy = ctl;
       var old = body();
       sec.setAttribute('aria-busy', 'true');
-      if (old) old.classList.add('nx-out');
+      if (old && !quiet) old.classList.add('nx-out');
       // เลื่อนให้หัวข้อข่าวชิดบนแบบนุ่มนวล ระหว่างที่โหลดเนื้อหาใหม่
-      glide(newsTop());
+      if (!quiet) glide(newsTop());
       return fetch(href, { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
         .then(function (html) {
@@ -355,12 +355,13 @@
             requestAnimationFrame(function () { requestAnimationFrame(function () { nb.classList.remove('nx-in'); }); });
             setTimeout(function () { wrap.style.minHeight = ''; }, 400);
           }
-          if (push) history.pushState({ newsTab: 1 }, '', href);
+          if (push) history.pushState({ newsCat: catOf(href) }, '', href);
           sec.removeAttribute('aria-busy');
           busy = null;
         })
         .catch(function (e) {
           if (e && e.name === 'AbortError') return;
+          if (quiet) { sec.removeAttribute('aria-busy'); return; }
           location.href = href;   // ผิดพลาด — กลับไปใช้การโหลดหน้าแบบปกติ
         });
     }
@@ -375,11 +376,24 @@
       load(a.href, true);
     });
     // ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์ระหว่างแท็บ
-    function catOf(u) { return new URL(u, location.href).searchParams.get('cat') || 'pr'; }
-    window.addEventListener('popstate', function () {
-      var on = sec.querySelector('.tabs a.on');
-      if (on && catOf(on.href) !== catOf(location.href)) load(location.href, false);
+    function catOf(u) { return new URL(u, location.href).searchParams.get('cat') || ''; }
+    function onCat() { var on = sec.querySelector('.tabs a.on'); return on ? catOf(on.href) : ''; }
+    window.addEventListener('popstate', function (e) {
+      var want = e.state && e.state.newsCat;
+      if (want === undefined || want === null || want !== onCat()) load(location.href, false);
     });
-    history.replaceState({ newsTab: 1 }, '', location.href);
+    history.replaceState({ newsCat: onCat() }, '', location.href);
+
+    // ถึงรอบดึงโพสต์ใหม่จาก Facebook: เรียกเบื้องหลัง ถ้าได้ข่าวใหม่และเปิดแท็บฮอตอัพเดตอยู่ ก็แสดงข่าวใหม่ทันที
+    var fb = sec.querySelector('[data-fb-sync]');
+    if (fb) setTimeout(function () {
+      fetch(fb.getAttribute('data-fb-sync'), { method: 'POST', credentials: 'same-origin', keepalive: true })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var on = sec.querySelector('.tabs a.on');
+          if (j && j.added > 0 && on && on.classList.contains('hot') && !busy) load(on.href, false, true);
+        })
+        .catch(function () { /* ไม่เป็นไร รอบหน้าค่อยลองใหม่ */ });
+    }, 1500);
   })();
 })();

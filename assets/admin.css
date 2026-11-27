@@ -243,6 +243,7 @@ body.ai-on .main{padding-right:472px}
 .slide-pv{aspect-ratio:1920/710;border-radius:6px;background:#e9eef6 center/cover no-repeat;display:grid;place-items:center;color:var(--mute);font-size:14px;border:1px solid var(--line)}
 .slide-row{display:flex;align-items:center;gap:14px}
 .slide-th{flex:none;width:150px;aspect-ratio:1920/710;border-radius:4px;background:#e9eef6 center/cover no-repeat;border:1px solid var(--line2)}
+.slide-th.fb-th{width:96px;aspect-ratio:1;display:grid;place-items:center;font-size:12px;color:var(--mute)}
 .slide-th.intro{display:grid;place-items:center;background:var(--navy);color:#f2c14e;font-size:12px;font-weight:600}
 .ord{display:flex;flex-direction:column;gap:2px}
 .ordbtn{width:30px;height:24px;border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--mute);font-size:10px;cursor:pointer}

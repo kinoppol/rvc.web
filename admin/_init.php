@@ -23,6 +23,7 @@ const ADMIN_ICONS = [
     'out'  => 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11',
     'ext'  => 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     'imp'  => 'M12 3v12M7 10l5 5 5-5M4 17v3h16v-3',
+    'fb'   => 'M15 3h-2.5A4.5 4.5 0 0 0 8 7.5V10H5v4h3v7h4v-7h3l1-4h-4V7.5a.5.5 0 0 1 .5-.5H15z',
     'ai'   => 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z',
 ];
 
@@ -33,6 +34,7 @@ const ADMIN_MENU = [
     ['pages', 'หน้าเว็บ', 'page', 'pages.php', null, true],
     ['popups', 'ป๊อปอัพ', 'pop', 'popups.php', null, false],
     ['slides', 'ภาพสไลด์หน้าแรก', 'slide', 'slides.php', null, true],
+    ['facebook', 'ข่าวจาก Facebook', 'fb', 'facebook.php', null, true],
     ['units', 'เว็บไซต์ย่อยหน่วยงาน', 'unit', 'units.php', 'โครงสร้าง', true],
     ['users', 'ผู้ใช้และสิทธิ์', 'user', 'users.php', 'ผู้ดูแลระบบ', true],
     ['settings', 'ตั้งค่าเว็บไซต์', 'set', 'settings.php', null, true],
@@ -72,7 +74,7 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=6">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=7">
 <link rel="icon" type="image/png" href="<?= e(url('assets/seal.png')) ?>">
 </head>
 <body>
@@ -185,8 +187,8 @@ function agent_widget(): string
             'default' => (bool) $m['is_default'],
         ], $models),
         'hints'    => Auth::isAdmin()
-            ? ['สรุปภาพรวมระบบตอนนี้', 'มีข่าวไหนรออนุมัติบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศวันหยุด']
-            : ['ข่าวของฉันมีอะไรบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศ'],
+            ? ['ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต', 'สรุปภาพรวมระบบตอนนี้', 'มีข่าวไหนรออนุมัติบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศวันหยุด']
+            : ['ดึงโพสต์ใหม่จาก Facebook มาเป็นข่าวฮอตอัพเดต', 'ข่าวของฉันมีอะไรบ้าง', 'ร่างข่าวกิจกรรมจากประเด็นที่ฉันจะพิมพ์', 'สร้างป๊อปอัพประกาศ'],
     ];
     return '<button type="button" class="agent-fab" id="agent-fab" aria-haspopup="dialog" aria-controls="agent" title="สนทนากับผู้ช่วย AI">'
         . icon('ai', 22) . '<span>ผู้ช่วย AI</span></button>'

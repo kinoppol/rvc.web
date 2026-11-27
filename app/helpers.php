@@ -149,12 +149,14 @@ function str_limit(string $s, int $len): string
  * แปลงข้อความธรรมดาเป็น HTML ที่ปลอดภัย
  * ย่อหน้าคั่นด้วยบรรทัดว่าง · บรรทัดขึ้นต้น "## " = หัวข้อย่อย · "- " = รายการ · ลิงก์ http(s) กดได้
  * ลิงก์มีชื่อ: [ข้อความ](https://...) หรือ [ข้อความ](uploads/...) สำหรับไฟล์ที่เก็บในเว็บนี้
+ * รูปภาพ: ![คำอธิบาย](uploads/....jpg) — บรรทัดรูปที่อยู่ติดกันแสดงเป็นแกลเลอรี
  */
 function text_to_html(string $text): string
 {
     $text   = str_replace(["\r\n", "\r"], "\n", trim($text));
     $blocks = preg_split('/\n{2,}/', $text) ?: [];
     $out    = '';
+    $imgRe  = '~^!\[([^\]\n]{0,300})\]\((uploads/[A-Za-z0-9/_.\-]+\.(?:jpe?g|png|webp|gif))\)$~u';
     $link   = function (string $s): string {
         // 1) [ข้อความ](url) — เก็บไว้ชั่วคราวก่อน เพื่อไม่ให้ขั้นที่ 2 ทำลิงก์ซ้อน
         $named = [];
@@ -170,7 +172,15 @@ function text_to_html(string $text): string
     };
     foreach ($blocks as $b) {
         $lines = explode("\n", $b);
-        if (str_starts_with($b, '## ')) {
+        if (count(array_filter($lines, fn($l) => !preg_match($imgRe, trim($l)))) === 0) {
+            $out .= '<div class="news-gal">';
+            foreach ($lines as $l) {
+                preg_match($imgRe, trim($l), $m);
+                $src = e(url($m[2]));
+                $out .= '<a href="' . $src . '" target="_blank" rel="noopener"><img src="' . $src . '" alt="' . e($m[1]) . '" loading="lazy" decoding="async" data-sk></a>';
+            }
+            $out .= '</div>';
+        } elseif (str_starts_with($b, '## ')) {
             $out .= '<h2>' . $link(e(trim(substr($lines[0], 3)))) . '</h2>';
             $rest = trim(implode("\n", array_slice($lines, 1)));
             if ($rest !== '') {

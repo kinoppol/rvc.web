@@ -15,6 +15,7 @@ const UNIT_GROUPS = [
 const UNIT_KINDS = ['department' => 'แผนกวิชา', 'division' => 'ฝ่าย', 'work' => 'งาน'];
 
 const NEWS_CATEGORIES = [
+    'hot'         => 'ฮอตอัพเดต',
     'pr'          => 'ประชาสัมพันธ์',
     'activity'    => 'กิจกรรม',
     'procurement' => 'จัดซื้อจัดจ้าง',
@@ -146,6 +147,9 @@ function news_tag(array $n): array
     if (!empty($n['unit_name']) && ($n['unit_kind'] ?? '') === 'department') {
         $g = unit_group($n['group_key'] ?? 'org');
         return [$n['unit_name'], $g['color'], $g['tint']];
+    }
+    if ($n['category'] === 'hot') {
+        return [NEWS_CATEGORIES['hot'], '#b42318', '#fdecea'];
     }
     return [NEWS_CATEGORIES[$n['category']] ?? 'ข่าว', '#1f5aa6', '#e3eaf4'];
 }
