@@ -24,7 +24,7 @@ $nav        = 'home';
 $popupWhere = 'home';
 require BASE_PATH . '/app/views/header.php';
 ?>
-<script>/* แสดงฉากเปิดตราวิทยาลัยครั้งแรกที่เข้าเว็บในแต่ละรอบ */try{if(sessionStorage.getItem('rvc-intro'))document.documentElement.classList.add('no-intro');else sessionStorage.setItem('rvc-intro','1')}catch(e){}</script>
+<script>/* ฉากเปิดตราวิทยาลัย: แสดงครั้งแรกที่เข้าเว็บ และทุกครั้งที่รีเฟรช — ข้ามเมื่อกลับมาหน้าแรกจากการคลิกลิงก์หรือปุ่มย้อนกลับ */try{var n=performance.getEntriesByType&&performance.getEntriesByType('navigation')[0],r=n?n.type==='reload':!!performance.navigation&&performance.navigation.type===1;if(!r&&sessionStorage.getItem('rvc-intro'))document.documentElement.classList.add('no-intro');sessionStorage.setItem('rvc-intro','1')}catch(e){}</script>
 <section class="hero<?= $slides ? ' has-slides' : '' ?>"<?= $slides ? ' aria-roledescription="carousel" aria-label="ภาพเด่นหน้าแรก"' : '' ?>>
   <div class="hero-track" id="hero-track">
   <div class="hero-slide is-on" data-slide="0"<?= $slides ? ' role="group" aria-roledescription="slide" aria-label="1 จาก ' . (count($slides) + 1) . '"' : '' ?>>
