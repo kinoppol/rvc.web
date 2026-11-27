@@ -33,7 +33,7 @@ final class Agent
         'set_news_status' => ['write', false, 'เปลี่ยนสถานะข่าว · args: {"id", "status": "published" (เผยแพร่/อนุมัติ — เฉพาะผู้ดูแลระบบ) | "pending" (ส่งอนุมัติ) | "draft" (ถอนกลับเป็นร่าง)}'],
         'delete_news'   => ['write', false, 'ลบข่าว (กู้คืนไม่ได้) · args: {"id"}'],
         'import_facebook_posts' => ['write', false, 'นำเข้าโพสต์ Facebook เป็นข่าวหมวด "ฮอตอัพเดต" (ทำสำเนารูปทั้งหมดและลิงก์โพสต์ต้นฉบับให้) · args: {"posts": [{"id": เลขโพสต์จาก list_facebook_posts, "title"?: หัวข้อข่าวที่เรียบเรียงจากเนื้อหาโพสต์ (ไม่ใส่ = ใช้บรรทัดแรกของโพสต์)}] สูงสุด 10 โพสต์, "publish"?: true=เผยแพร่ (บรรณาธิการ=ส่งอนุมัติ) false=ฉบับร่าง (ไม่ระบุ = ตามการตั้งค่าในระบบ)}'],
-        'import_facebook_link' => ['write', false, 'นำเข้าโพสต์ Facebook 1 โพสต์จากลิงก์ เป็นข่าวหมวด "ฮอตอัพเดต" (ทำสำเนารูปแรกและใส่ลิงก์โพสต์ต้นฉบับให้ ไม่ต้องมีโทเคน) · args: {"url": ลิงก์โพสต์, "title"?: หัวข้อข่าวที่เรียบเรียงจากเนื้อหาโพสต์, "text"?: ข้อความโพสต์ฉบับเต็มตามที่ผู้ใช้วางมาเท่านั้น (ไม่ใส่ = ใช้ข้อความตัวอย่างจากลิงก์), "date"?: "YYYY-MM-DD HH:MM" วันที่โพสต์ถ้าผู้ใช้บอกหรือระบุไว้ชัดในโพสต์, "publish"?: true=เผยแพร่ (บรรณาธิการ=ส่งอนุมัติ) false=ฉบับร่าง (ไม่ระบุ = ตามการตั้งค่าในระบบ)}'],
+        'import_facebook_link' => ['write', false, 'นำเข้าโพสต์ Facebook 1 โพสต์จากลิงก์ เป็นข่าวหมวด "ฮอตอัพเดต" (ทำสำเนารูปแรกและใส่ลิงก์โพสต์ต้นฉบับให้ ไม่ต้องมีโทเคน) · args: {"url": ลิงก์โพสต์, "title"?: หัวข้อข่าวที่เรียบเรียงจากเนื้อหาโพสต์, "text"?: ข้อความโพสต์ฉบับเต็มตามที่ผู้ใช้วางมาเท่านั้น (ไม่ใส่ = ใช้ข้อความตัวอย่างจากลิงก์), "date"?: "YYYY-MM-DD HH:MM" (ค.ศ.) ใส่เฉพาะเมื่อผู้ใช้บอกวันที่เอง (ไม่ใส่ = ระบบอ่านวันที่จากข้อความโพสต์ให้),"publish"?: true=เผยแพร่ (บรรณาธิการ=ส่งอนุมัติ) false=ฉบับร่าง (ไม่ระบุ = ตามการตั้งค่าในระบบ)}'],
         'create_popup'  => ['write', false, 'สร้างป๊อปอัพประกาศ · args: {"title", "body"?: ≤500 ตัวอักษร, "link_url"?, "start_at": "YYYY-MM-DD HH:MM", "end_at": "YYYY-MM-DD HH:MM", "placement"?: "home"|"site"|"all", "enabled"?: true}'],
         'set_popup_enabled' => ['write', false, 'เปิด/ปิดใช้งานป๊อปอัพ · args: {"id", "enabled": true|false}'],
         'delete_popup'  => ['write', false, 'ลบป๊อปอัพ (กู้คืนไม่ได้) · args: {"id"}'],
@@ -366,12 +366,12 @@ final class Agent
                 $lines[] = ['สถานะ', ['published' => 'เผยแพร่ทันที', 'pending' => 'ส่งอนุมัติ', 'draft' => 'ฉบับร่าง'][$status]];
                 return ['นำเข้าโพสต์ Facebook ' . count($items) . ' โพสต์', $lines, false];
             case 'import_facebook_link':
-                [$d, $status, $date] = self::fbLinkPlan($a, $me);
-                $title = trim((string) ($a['title'] ?? '')) ?: Facebook::titleFrom($d['text']);
+                [$d, $status, $date, $from] = self::fbLinkPlan($a, $me);
+                $title =trim((string) ($a['title'] ?? '')) ?: Facebook::titleFrom($d['text']);
                 return ['นำเข้าโพสต์ Facebook จากลิงก์', array_values(array_filter([
                     ['เพจ', $d['page'] ?: '— (อ่านจากลิงก์ไม่ได้)'], ['หัวข้อ', mb_substr($title, 0, 255)], ['เนื้อหา', $short($d['text'], 600) ?: '— (มีเฉพาะรูป)'],
                     ['รูปภาพ', $d['image'] !== '' ? '1 ภาพ (รูปแรกของโพสต์)' : 'ไม่มี'],
-                    ['วันที่ข่าว', $date ? thai_date($date, 'time') : 'วันเวลาที่นำเข้า'],
+                    ['วันที่ข่าว', $date ? thai_date($date, 'long') . ' (' . $from . ')' : 'วันเวลาที่นำเข้า (ไม่พบวันที่ที่ใช้ได้ในข้อความ)'],
                     ['หมวด', NEWS_CATEGORIES[Facebook::CATEGORY]],
                     ['สถานะ', ['published' => 'เผยแพร่ทันที', 'pending' => 'ส่งอนุมัติ', 'draft' => 'ฉบับร่าง'][$status]],
                     $d['truncated'] ? ['คำเตือน', 'ข้อความจากลิงก์ถูกตัดท้าย — ข่าวจะมีลิงก์ให้อ่านฉบับเต็ม หรือวางข้อความเต็มให้ผู้ช่วยก่อนยืนยัน'] : null,
@@ -459,7 +459,7 @@ final class Agent
         return [$items, $publish ? ($me['role'] === 'admin' ? 'published' : 'pending') : 'draft'];
     }
 
-    /** @return array{0:array, 1:string, 2:?string} ข้อมูลข่าวจากลิงก์โพสต์, สถานะข่าว, วันที่โพสต์ */
+    /** @return array{0:array, 1:string, 2:?string, 3:string} ข้อมูลข่าวจากลิงก์โพสต์, สถานะข่าว, วันที่ข่าว (null = เวลาที่นำเข้า), ที่มาของวันที่ */
     private static function fbLinkPlan(array $a, array $me): array
     {
         $d = Facebook::linkDraft((string) ($a['url'] ?? ''), (string) ($a['text'] ?? ''));
@@ -467,8 +467,13 @@ final class Agent
             throw new InvalidArgumentException('โพสต์นี้นำเข้าเป็นข่าว #' . $d['imported'] . ' ไว้แล้ว');
         }
         $date = !empty($a['date']) ? self::dt((string) $a['date'], 'วันที่โพสต์') : null;
+        $from = 'ตามที่ระบุ';
+        if ($date === null || strtotime($date) > time()) {   // วันในอนาคตจะทำให้ข่าวถูกซ่อนจนถึงวันนั้น
+            $date = Facebook::dateFromText($d['text']);
+            $from = 'จากข้อความในโพสต์';
+        }
         $publish = array_key_exists('publish', $a) ? (bool) $a['publish'] : Facebook::publishNow();
-        return [$d, $publish ? ($me['role'] === 'admin' ? 'published' : 'pending') : 'draft', $date];
+        return [$d, $publish ? ($me['role'] === 'admin' ? 'published' : 'pending') : 'draft', $date, $from];
     }
 
     private static function settingField(string $key): array

@@ -389,6 +389,42 @@ final class Facebook
         ];
     }
 
+    /**
+     * วันที่แรกที่เขียนในข้อความโพสต์ (วัน เดือนภาษาไทย ปี) ใช้เป็นวันที่ข่าว
+     * คืน null ถ้าไม่พบ หรือวันแรกเป็นวันในอนาคต (เช่น ประกาศกิจกรรมล่วงหน้า)
+     */
+    public static function dateFromText(string $text): ?string
+    {
+        $text = strtr($text, ['๐' => '0', '๑' => '1', '๒' => '2', '๓' => '3', '๔' => '4', '๕' => '5', '๖' => '6', '๗' => '7', '๘' => '8', '๙' => '9']);
+        // ชื่อเต็มก่อน ตามด้วยตัวย่อ (ยอมให้ตกจุดหรือเว้นวรรคได้) — ลำดับกลุ่มในวงเล็บบอกเลขเดือน
+        $months = [];
+        foreach (TH_MONTHS as $i => $full) {
+            $months[] = '(' . $full . '|' . str_replace('\.', '\.?\s?', preg_quote(TH_MONTHS_SHORT[$i], '~')) . ')';
+        }
+        $re = '~(?<!\d)(\d{1,2})(?:\s*(?:[-–—]|ถึง)\s*\d{1,2})?\s*(?:เดือน\s*)?(?:' . implode('|', $months) . ')\s*'
+            . '(?:(?:พ\.\s?ศ\.|ค\.\s?ศ\.|พุทธศักราช)\s*)?(\d{4}|\d{2})(?!\d|[.:]\d)~u';
+        preg_match_all($re, $text, $all, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        foreach ($all as $m) {
+            $month = 0;
+            for ($i = 1; $i <= 12; $i++) {
+                if ($m[$i + 1] !== null) {
+                    $month = $i;
+                }
+            }
+            $year = (int) $m[14];
+            $year += strlen($m[14]) === 2 ? 2500 - 543 : ($year >= 2400 ? -543 : 0);
+            if ($year < 2000 || !checkdate($month, (int) $m[1], $year)) {
+                continue;
+            }
+            $day = sprintf('%04d-%02d-%02d', $year, $month, (int) $m[1]);
+            if ($day > date('Y-m-d')) {
+                return null;
+            }
+            return $day === date('Y-m-d') ? date('Y-m-d H:i:s') : $day . ' 12:00:00';
+        }
+        return null;
+    }
+
     /** @return array{id:int, skipped:bool, warnings:list<string>} */
     public static function importLink(array $d, ?int $authorId, string $status, ?string $title = null, ?string $date = null): array
     {
