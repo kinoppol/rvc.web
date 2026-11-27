@@ -139,6 +139,7 @@ if ($act === 'new' || $act === 'edit') {
       <div><a class="back" href="<?= e(url('admin/news.php')) ?>">‹ กลับไปรายการข่าว</a>
         <h1><?= $n['id'] ? 'แก้ไขข่าว' : 'เขียนข่าว' ?> <?= $n['id'] ? status_pill(news_state($n)) : '' ?></h1></div>
       <div class="acts">
+        <?= ai_button('news', ['title' => '#nt', 'body' => '#body', 'excerpt' => '#ex']) ?>
         <?php if ($n['id']): ?><a class="btn ghost" href="<?= e(url('news_view.php', ['id' => $n['id'], 'preview' => 1])) ?>" target="_blank" rel="noopener">ดูตัวอย่าง</a><?php endif; ?>
         <button class="btn ghost" type="submit" name="intent" value="draft">บันทึกฉบับร่าง</button>
         <button class="btn" type="submit" name="intent" value="publish"><?= $isAdmin ? 'เผยแพร่' : 'ส่งอนุมัติ' ?></button>

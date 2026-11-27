@@ -49,7 +49,7 @@ if ($act === 'new' || $old) {
     <?= Csrf::field() ?><input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
     <div class="head">
       <div><a class="back" href="<?= e(url('admin/pages.php')) ?>">‹ กลับไปรายการหน้าเว็บ</a><h1><?= $p['id'] ? e($p['title']) : 'เพิ่มหน้าเว็บ' ?></h1></div>
-      <div class="acts"><?php if ($p['id']): ?><a class="btn ghost" href="<?= e(page_url($p['slug'])) ?>" target="_blank" rel="noopener">ดูหน้าเว็บ</a><?php endif; ?><button class="btn" type="submit">บันทึก</button></div>
+      <div class="acts"><?= ai_button('page', ['title' => '#t', 'body' => '#body']) ?><?php if ($p['id']): ?><a class="btn ghost" href="<?= e(page_url($p['slug'])) ?>" target="_blank" rel="noopener">ดูหน้าเว็บ</a><?php endif; ?><button class="btn" type="submit">บันทึก</button></div>
     </div>
     <div class="cols">
       <section class="card wide" style="display:block">

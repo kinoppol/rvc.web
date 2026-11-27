@@ -1,5 +1,6 @@
 # ไฟล์ที่สร้างขณะติดตั้ง/ใช้งาน (มีรหัสผ่านหรือข้อมูลผู้ใช้)
 /config/config.php
+/config/app.key
 /config/*.tmp
 /storage/installed.lock
 /storage/sessions/*

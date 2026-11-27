@@ -21,6 +21,7 @@ const ADMIN_ICONS = [
     'sys'  => 'M9 12l2 2 4-4M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z',
     'out'  => 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11',
     'ext'  => 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    'ai'   => 'M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z',
 ];
 
 /** เมนู: [key, ชื่อ, ไอคอน, ไฟล์, กลุ่ม, เฉพาะ admin] */
@@ -32,6 +33,7 @@ const ADMIN_MENU = [
     ['units', 'เว็บไซต์ย่อยหน่วยงาน', 'unit', 'units.php', 'โครงสร้าง', true],
     ['users', 'ผู้ใช้และสิทธิ์', 'user', 'users.php', 'ผู้ดูแลระบบ', true],
     ['settings', 'ตั้งค่าเว็บไซต์', 'set', 'settings.php', null, true],
+    ['ai', 'ผู้ช่วย AI', 'ai', 'ai.php', null, true],
     ['migrations', 'Migrations', 'db', 'migrations.php', null, true],
     ['system', 'ตรวจสอบระบบ', 'sys', 'system.php', null, true],
 ];
@@ -66,7 +68,7 @@ function admin_header(string $title, string $active, ?string $crumb = null): voi
 <title><?= e($title) ?> · ระบบจัดการเว็บไซต์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=1">
+<link rel="stylesheet" href="<?= e(url('assets/admin.css')) ?>?v=2">
 </head>
 <body>
 <div class="shell">
@@ -104,8 +106,51 @@ function admin_footer(): void
     ?>
 </main>
 </div>
-<script src="<?= e(url('assets/admin.js')) ?>?v=1"></script>
+<script src="<?= e(url('assets/admin.js')) ?>?v=2"></script>
+<?php if (!empty($GLOBALS['_ai_panel'])): ?><script src="<?= e(url('assets/ai.js')) ?>?v=1"></script><?php endif; ?>
 </body>
 </html>
 <?php
+}
+
+/** ผู้ใช้คนนี้ใช้ผู้ช่วย AI ได้หรือไม่ */
+function ai_can_use(): bool
+{
+    return Auth::isAdmin() || (Auth::user() !== null && Settings::get('ai_allow_editors', '1') === '1');
+}
+
+/**
+ * ปุ่มเปิดแผงผู้ช่วย AI สำหรับหน้าแก้ไขเนื้อหา (แสดงเฉพาะเมื่อมีโมเดลที่เปิดใช้งาน)
+ * @param string $kind   news | page | popup
+ * @param array  $fields ช่องในฟอร์ม เช่น ['title' => '#nt', 'body' => '#body', 'excerpt' => '#ex']
+ */
+function ai_button(string $kind, array $fields): string
+{
+    if (!ai_can_use()) {
+        return '';
+    }
+    $models = Ai::enabledModels();
+    if (!$models) {
+        return Auth::isAdmin()
+            ? '<a class="btn ghost" href="' . e(url('admin/ai.php')) . '" title="ยังไม่ได้เปิดใช้งานโมเดล AI">' . icon('ai', 18) . ' ตั้งค่าผู้ช่วย AI</a>'
+            : '';
+    }
+    $GLOBALS['_ai_panel'] = true;
+    $cfg = [
+        'endpoint' => url('admin/ai_api.php'),
+        'csrf'     => Csrf::token(),
+        'kind'     => $kind,
+        'fields'   => $fields,
+        'models'   => array_map(fn($m) => [
+            'id' => (int) $m['id'],
+            'name' => ($m['label'] ?: $m['model_id']) . ($m['is_free'] ? ' (ฟรี)' : ''),
+            'provider' => $m['provider_name'],
+            'default' => (bool) $m['is_default'],
+        ], $models),
+        'tasks'    => array_map(fn($k) => Ai::TASKS[$k][0], array_combine($keys = $kind === 'popup'
+            ? ['popup', 'improve', 'proofread', 'shorten', 'free']
+            : array_values(array_diff(array_keys(Ai::TASKS), ['popup'])), $keys)),
+    ];
+    return '<button class="btn ghost ai-open" type="button" data-ai="' . e(json_encode($cfg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '" aria-haspopup="dialog">'
+        . icon('ai', 18) . ' ผู้ช่วย AI</button>';
 }

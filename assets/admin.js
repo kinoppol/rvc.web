@@ -7,6 +7,11 @@
     var msg = ev.target.getAttribute('data-confirm');
     if (msg && !window.confirm(msg)) ev.preventDefault();
   });
+  // ยืนยันก่อนกดปุ่มที่มี data-confirm-click
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-confirm-click]');
+    if (b && !window.confirm(b.getAttribute('data-confirm-click'))) ev.preventDefault();
+  });
 
   // แสดงตัวอย่างรูปก่อนอัปโหลด: <input type=file data-preview="#id">
   document.querySelectorAll('input[type=file][data-preview]').forEach(function (inp) {

@@ -108,6 +108,7 @@ admin_header('ป๊อปอัพ', 'popups', 'ป๊อปอัพ › ' . (
   <div><h1>ตั้งป๊อปอัพประกาศ / เทศกาล</h1>
   <p>กรอก 3 ขั้น แล้วกด “บันทึกและตั้งเวลา” ระบบจะแสดงและซ่อนให้เองตามเวลาที่กำหนด</p></div>
   <div class="acts">
+    <?= ai_button('popup', ['title' => '#pt', 'body' => '#pb']) ?>
     <a class="btn ghost" href="<?= e(url('admin/popups.php')) ?>">ยกเลิก</a>
     <button class="btn ghost" type="submit" name="intent" value="draft">บันทึกฉบับร่าง</button>
     <button class="btn" type="submit" name="intent" value="save">บันทึกและตั้งเวลา</button>
