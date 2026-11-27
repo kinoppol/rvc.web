@@ -19,7 +19,7 @@ final class Agent
     /** เครื่องมือ: ชื่อ => [ประเภท read|write|nav, เฉพาะ admin, คำอธิบายสำหรับโมเดล] */
     public const TOOLS = [
         'site_summary'  => ['read', false, 'สรุปภาพรวมระบบ: จำนวนข่าวแต่ละสถานะ ข่าวรออนุมัติ ป๊อปอัพที่กำลังแสดง ผู้ใช้ migration ที่ค้าง · args: {}'],
-        'list_news'     => ['read', false, 'ค้นหา/แสดงรายการข่าว · args: {"q"?: คำค้น, "status"?: "live"|"scheduled"|"draft"|"pending", "category"?: "hot"|"pr"|"activity"|"procurement"|"jobs", "limit"?: 1-20}'],
+        'list_news'     => ['read', false, 'ค้นหา/แสดงรายการข่าว · args: {"q"?: คำค้น, "status"?: "live"|"scheduled"|"draft"|"pending", "category"?: "hot"|"pr"|"activity"|"award"|"procurement"|"jobs", "limit"?: 1-20}'],
         'get_news'      => ['read', false, 'อ่านข่าวฉบับเต็ม · args: {"id": เลขข่าว}'],
         'list_popups'   => ['read', false, 'แสดงรายการป๊อปอัพทั้งหมดพร้อมสถานะ · args: {}'],
         'list_pages'    => ['read', true,  'แสดงรายการหน้าเว็บ · args: {}'],

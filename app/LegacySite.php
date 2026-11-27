@@ -16,7 +16,7 @@ final class LegacySite
     public const SOURCES = [
         'news'        => ['label' => 'ข่าวประชาสัมพันธ์', 'list' => 'news?status=1', 'one' => 'news/', 'id' => 'news_id', 'title' => 'title', 'date' => 'dt', 'category' => 'pr', 'view' => '/news/'],
         'activity'    => ['label' => 'ภาพกิจกรรม', 'list' => 'activity?status=1', 'one' => 'activity/', 'id' => 'activity_id', 'title' => 'activity', 'date' => 'dtact', 'category' => 'activity', 'view' => '/activity/'],
-        'award'       => ['label' => 'ผลงานและรางวัล', 'list' => 'award?status=1', 'one' => 'award/', 'id' => 'award_id', 'title' => 'award', 'date' => 'dtaward', 'category' => 'pr', 'view' => '/award/'],
+        'award'       => ['label' => 'ผลงานและรางวัล', 'list' => 'award?status=1', 'one' => 'award/', 'id' => 'award_id', 'title' => 'award', 'date' => 'dtaward', 'category' => 'award', 'view' => '/award/'],
         'procurement' => ['label' => 'จัดซื้อจัดจ้าง', 'list' => 'purchase?status=1&type=0', 'one' => 'purchase/', 'id' => 'purchase_id', 'title' => 'title', 'date' => 'dt', 'category' => 'procurement', 'view' => null],
         'jobs'        => ['label' => 'รับสมัครงาน / ประกาศผล', 'list' => 'purchase?status=1&type=1', 'one' => 'purchase/', 'id' => 'purchase_id', 'title' => 'title', 'date' => 'dt', 'category' => 'jobs', 'view' => null],
     ];

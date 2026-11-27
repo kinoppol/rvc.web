@@ -18,6 +18,7 @@ const NEWS_CATEGORIES = [
     'hot'         => 'ฮอตอัพเดต',
     'pr'          => 'ประชาสัมพันธ์',
     'activity'    => 'กิจกรรม',
+    'award'       => 'ผลงานนักศึกษา',
     'procurement' => 'จัดซื้อจัดจ้าง',
     'jobs'        => 'รับสมัครงาน',
 ];
@@ -150,6 +151,9 @@ function news_tag(array $n): array
     }
     if ($n['category'] === 'hot') {
         return [NEWS_CATEGORIES['hot'], '#b42318', '#fdecea'];
+    }
+    if ($n['category'] === 'award') {
+        return [NEWS_CATEGORIES['award'], '#9a5b00', '#fbf0dc'];
     }
     return [NEWS_CATEGORIES[$n['category']] ?? 'ข่าว', '#1f5aa6', '#e3eaf4'];
 }
